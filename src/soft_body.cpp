@@ -108,6 +108,11 @@ void SoftBody::getMesh(std::vector<Eigen::Vector3f> &vertices,
     }
 }
 
+void SoftBody::addAnchor(uint node_idx, RigidBodyPtr anchor)
+{
+    handle_->appendAnchor(node_idx, anchor->handle(), true, 10);
+}
+
 SoftBody::SoftBody(const SoftBodyBuilder &b, PhysicsWorld &world)
 {
     assert( b.shape_ ) ;

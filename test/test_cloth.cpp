@@ -56,6 +56,7 @@ void createWorld() {
         .makeVisualShape({ 0, 1, 0, 1})
     );
 
+
     const btScalar s = 4;  //size of cloth patch
     const int NUM_X = 31;  //vertices on X axis
     const int NUM_Z = 31;  //vertices on Z axis
@@ -63,7 +64,7 @@ void createWorld() {
     MaterialPtr material(new PhongMaterial({0, 1, 1, 1}));
     material->setSide(Material::Side::Both) ;
 
-    std::shared_ptr<SoftBodyShape> sbs(new SoftPatch2D({-2, 3, 0}, {2, 3, 0}, {-2, 3, 4}, NUM_X, NUM_Z, SoftPatch2D::TopEdge, false));
+    std::shared_ptr<SoftBodyShape> sbs(new SoftPatch2D({-2, 3, 0}, {2, 3, 0}, {-2, 3, 0.4}, NUM_X, NUM_Z, SoftPatch2D::TopEdge, false));
     SoftBodyPtr cloth = physics.addSoftBody(SoftBodyBuilder()
                         .setName("cloth")
                         .setShape(sbs)
@@ -71,7 +72,18 @@ void createWorld() {
                         .setMass(1)
                         .makeVisualShape(material)
                     );
+
+    std::shared_ptr<SoftBodyShape> sbs1(new SoftPatch2D({-2, 3, 0.5}, {2, 3, 0}, {-2, 3, 4}, NUM_X, NUM_Z, 0, false));
+    SoftBodyPtr cloth1 = physics.addSoftBody(SoftBodyBuilder()
+                        .setName("cloth1")
+                        .setShape(sbs1)
+                        .setMargin(0.05)
+                        .setMass(1)
+                        .makeVisualShape(material)
+                    );
 }
+
+
 
 
 int main(int argc, char **argv)

@@ -10,6 +10,7 @@
 
 #include <xsim/collision.hpp>
 #include <xsim/convert.hpp>
+#include <xsim/rigid_body.hpp>
 
 #include <xviz/scene/geometry.hpp>
 #include <xviz/scene/node.hpp>
@@ -92,6 +93,9 @@ public :
     }
 
     Eigen::Isometry3f getWorldTransform() const override { return tr_ ; }
+
+    void addAnchor(uint node_idx, RigidBodyPtr anchor) ;
+
 protected:
 
     SoftBody(const SoftBodyBuilder &b, PhysicsWorld &world) ;
