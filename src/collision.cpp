@@ -1,3 +1,4 @@
+#include <bullet/BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 #include <xsim/collision.hpp>
 
 #include <bullet/BulletCollision/Gimpact/btGImpactShape.h>

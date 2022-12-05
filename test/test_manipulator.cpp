@@ -189,7 +189,7 @@ void createScene() {
     physics.setGravity({0, 0, -10});
 
     // load URDFs
-    string path = "/home/malasiot/source/vlog/data/physics/" ;
+    string path = "/home/malasiot/source/xsim/data/" ;
     URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
     URDFRobot table = URDFRobot::load(path + "models/table.urdf");
 

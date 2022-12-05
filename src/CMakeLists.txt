@@ -28,7 +28,7 @@ set(LIB_SOURCES
 )
 
 add_library(xsim SHARED ${LIB_SOURCES})
-
+message(${BULLET_LIBRARIES})
 target_link_libraries(xsim  ${BULLET_LIBRARIES} xviz)
 
 # Install library
