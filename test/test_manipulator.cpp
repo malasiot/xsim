@@ -100,31 +100,6 @@ SoftBodyPtr makeCloth() {
     return sb ;
 }
 
-template<typename Derived>
-Eigen::Matrix<typename Derived::Scalar,4,4> lookAt(Derived const & eye, Derived const & center, Derived const & up){
-  typedef Eigen::Matrix<typename Derived::Scalar,4,4> Matrix4;
-  typedef Eigen::Matrix<typename Derived::Scalar,3,1> Vector3;
-  Vector3 f = (center - eye).normalized();
-  Vector3 u = up.normalized();
-  Vector3 s = f.cross(u).normalized();
-  u = s.cross(f);
-  Matrix4 mat = Matrix4::Zero();
-  mat(0,0) = s.x();
-  mat(0,1) = s.y();
-  mat(0,2) = s.z();
-  mat(0,3) = -s.dot(eye);
-  mat(1,0) = u.x();
-  mat(1,1) = u.y();
-  mat(1,2) = u.z();
-  mat(1,3) = -u.dot(eye);
-  mat(2,0) = -f.x();
-  mat(2,1) = -f.y();
-  mat(2,2) = -f.z();
-  mat(2,3) = f.dot(eye);
-  mat.row(3) << 0,0,0,1;
-  return mat;
-}
-
 class GUI: public SimulationGui, CollisionFeedback {
 public:
     GUI(xsim::PhysicsWorld &physics):
@@ -145,7 +120,8 @@ public:
         pose.linear() = rot.matrix() ;
         pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
 
-        ik(*robot_mb, pose, M_PI/4) ;
+
+       // ik(*robot_mb, pose, M_PI/4) ;
         openGripper() ;
 
         target_.reset(new Node) ;
