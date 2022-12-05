@@ -64,23 +64,23 @@ MultiBodyBuilder & MultiBodyBuilder::loadURDF(const URDFRobot &rb) {
         const std::string &name = mp.first ;
 
         if ( mat.texture_path_.empty() ) {
-            Vector4f clr = mat.diffuse_color_ ;
+            Vector3f clr = mat.diffuse_color_ ;
             PhongMaterial *material = new PhongMaterial ;
             material->setSide(Material::Side::Both) ;
             material->setShininess(0);
-            material->setSpecularColor({0, 0, 0, 1}) ;
+            material->setSpecularColor({0, 0, 0}) ;
             material->setDiffuseColor(clr) ;
 
             materials.emplace(name, MaterialPtr(material)) ;
         } else {
-            Image im(mat.texture_path_) ;
+            std::shared_ptr<Image> im(new Image(mat.texture_path_)) ;
             Texture2D *s = new Texture2D(im, Sampler2D()) ;
 
             PhongMaterial *material = new PhongMaterial() ;
             material->setDiffuseTexture(s);
             material->setShininess(0);
-            material->setSpecularColor({0, 0, 0, 1}) ;
-            material->setDiffuseColor({0, 0, 0, 1}) ;
+            material->setSpecularColor({0, 0, 0}) ;
+            material->setDiffuseColor({0, 0, 0}) ;
 
             materials.emplace(name, MaterialPtr(material)) ;
         }

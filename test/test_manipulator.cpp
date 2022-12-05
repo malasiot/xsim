@@ -83,7 +83,7 @@ SoftBodyPtr makeCloth() {
 
     SoftBodyShapePtr sbs = SoftBodyShape::fromMeshModel("/home/malasiot/local/bullet3/data/cloth_z_up.obj") ;
 
-    MaterialPtr material(new PhongMaterial({0, 1, 1, 1}));
+    MaterialPtr material(new PhongMaterial(Vector3f{0, 1, 1}));
     material->setSide(Material::Side::Both) ;
 
     SoftBodyPtr sb = physics.addSoftBody(SoftBodyBuilder()
@@ -189,7 +189,7 @@ void createScene() {
     physics.setGravity({0, 0, -10});
 
     // load URDFs
-    string path = "/home/malasiot/source/xviz/data/physics/" ;
+    string path = "/home/malasiot/source/vlog/data/physics/" ;
     URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
     URDFRobot table = URDFRobot::load(path + "models/table.urdf");
 
