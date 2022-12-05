@@ -6,6 +6,7 @@
 #include <xviz/scene/geometry.hpp>
 #include <xviz/scene/node_helpers.hpp>
 #include <xviz/robot/robot_scene.hpp>
+#include <xviz/gui/manipulator.hpp>
 #include <xviz/gui/viewer.hpp>
 
 #include <iostream>
@@ -57,7 +58,7 @@ static const char *mimic_joint_names[] = {
 static const char *gripper_main_control_joint_name = "robotiq_85_left_knuckle_joint";
 
 
-void ik(MultiBody &body, Isometry3f &ee, float roll) {
+void ik(MultiBody &body, const Isometry3f &ee, float roll) {
 
 
     double jseed[6], j[6] ;
@@ -70,6 +71,7 @@ void ik(MultiBody &body, Isometry3f &ee, float roll) {
     UR5IKSolver solver ;
     if ( solver.solve(jseed, ee, roll, j) ) {
 
+        cout << "ok" << endl ;
         for( uint i=0 ; i<6 ; i++ ) {
             Joint *ctrl = body.findJoint(arm_joint_names[i]) ;
             ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(j[i]));
@@ -98,12 +100,40 @@ SoftBodyPtr makeCloth() {
     return sb ;
 }
 
+template<typename Derived>
+Eigen::Matrix<typename Derived::Scalar,4,4> lookAt(Derived const & eye, Derived const & center, Derived const & up){
+  typedef Eigen::Matrix<typename Derived::Scalar,4,4> Matrix4;
+  typedef Eigen::Matrix<typename Derived::Scalar,3,1> Vector3;
+  Vector3 f = (center - eye).normalized();
+  Vector3 u = up.normalized();
+  Vector3 s = f.cross(u).normalized();
+  u = s.cross(f);
+  Matrix4 mat = Matrix4::Zero();
+  mat(0,0) = s.x();
+  mat(0,1) = s.y();
+  mat(0,2) = s.z();
+  mat(0,3) = -s.dot(eye);
+  mat(1,0) = u.x();
+  mat(1,1) = u.y();
+  mat(1,2) = u.z();
+  mat(1,3) = -u.dot(eye);
+  mat(2,0) = -f.x();
+  mat(2,1) = -f.y();
+  mat(2,2) = -f.z();
+  mat(2,3) = f.dot(eye);
+  mat.row(3) << 0,0,0,1;
+  return mat;
+}
+
 class GUI: public SimulationGui, CollisionFeedback {
 public:
     GUI(xsim::PhysicsWorld &physics):
         SimulationGui(physics) {
 
         initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
+
+         auto world = physics.getVisual() ;
+         auto robot = world->findNodeByName("base_link") ;
 
 //        physics.setCollisionFeedback(this);
 
@@ -115,9 +145,36 @@ public:
         pose.linear() = rot.matrix() ;
         pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
 
-        ik(*robot_mb, pose, M_PI/2) ;
-
+        ik(*robot_mb, pose, M_PI/4) ;
         openGripper() ;
+
+        target_.reset(new Node) ;
+        GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
+        PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
+        MaterialPtr mat(material) ;
+        target_->addDrawable(geom, mat) ;
+        robot->addChild(target_) ;
+
+        gizmo_.reset(new TransformGizmo(camera_, 0.15)) ;
+        robot->addChild(gizmo_) ;
+        gizmo_->setOrder(2) ;
+        gizmo_->setVisible(true) ;
+
+
+        gizmo_->setCallback([robot, rot](TransformGizmoEvent e, const Affine3f &f) {
+            if ( e == TRANSFORM_GIZMO_MOTION_ENDED )  {
+                Isometry3f p = Isometry3f::Identity() ;
+                p.translation() = f.translation() ;
+                p.linear() = rot.matrix() ;
+                ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
+            } else if ( e == TRANSFORM_GIZMO_MOVING ) {
+                cout << f.translation().adjoint() << endl ;
+            }
+
+        });
+
+        gizmo_->attachTo(target_.get());
+        gizmo_->setLocalTransform(true);
 
     }
 
@@ -155,30 +212,61 @@ public:
 
     void onUpdate(float delta) override {
          SimulationGui::onUpdate(delta) ;
-
-         vector<ContactResult> results ;
-         physics.contactPairTest(cube_rb, table_mb->getLink("baseLink"), 0.01, results) ;
-         cout << results.size() << endl ;
-    }
+//         vector<ContactResult> results ;
+//         physics.contactPairTest(cube_rb, table_mb->getLink("baseLink"), 0.01, results) ;
+     }
 
     void keyPressEvent(QKeyEvent *event) override {
-        Joint *joint = robot_mb->findJoint("robotiq_85_left_knuckle_joint") ;
         if ( event->key() == Qt::Key_Q ) {
             openGripper();
-
         } else if ( event->key() == Qt::Key_W ) {
             closeGripper() ;
-        } else SimulationGui::keyPressEvent(event) ;
+        } else if ( event->key() == Qt::Key_L )
+            gizmo_->setLocalTransform(true) ;
+        else if ( event->key() == Qt::Key_G )
+            gizmo_->setLocalTransform(false) ;
+        else SimulationGui::keyPressEvent(event) ;
 
         update() ;
 
     }
+
+    void mousePressEvent(QMouseEvent *event) override {
+        if ( gizmo_->onMousePressed(event) ) {
+            update() ;
+            return ;
+        }
+
+        SimulationGui::mousePressEvent(event) ;
+    }
+
+    void mouseReleaseEvent(QMouseEvent * event) override {
+        if ( gizmo_->onMouseReleased(event) ) {
+            update() ;
+            return ;
+        }
+
+        SimulationGui::mouseReleaseEvent(event) ;
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override {
+        if ( gizmo_->onMouseMoved(event) ) {
+            update() ;
+            return ;
+        }
+
+        SimulationGui::mouseMoveEvent(event) ;
+    }
+
 
     void processContact(ContactResult &r) override {
         if ( r.a_ == nullptr || r.b_ == nullptr ) return ;
         if ( r.a_->getName() == "ground" || r.b_->getName() == "ground" ) return  ;
         cout << r.a_->getName() << ' ' << r.b_->getName() << endl ;
     }
+
+    std::shared_ptr<TransformGizmo> gizmo_;
+    NodePtr target_ ;
 
 };
 
@@ -195,6 +283,7 @@ void createScene() {
 
     // ur5 + gripper
     robot_mb = physics.addMultiBody(MultiBodyBuilder(robot)
+                                .setName("robot")
                                 .setFixedBase()
                                 .setLinearDamping(0.f)
                                 .setAngularDamping(0.f)
@@ -208,16 +297,16 @@ void createScene() {
 
     // cloth
 
-    cloth = makeCloth() ;
+  //  cloth = makeCloth() ;
 
     // a cube to grasp
 
     cube_rb = physics.addRigidBody(RigidBodyBuilder()
                          .setMass(0.1)
-                         .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.02, 0.02, 0.02)))
+                         .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.08, 0.08, 0.08)))
                          .makeVisualShape({1.0, 0.1, 0.6, 1})
                          .setName("cube")
-                         .setWorldTransform(Isometry3f(Translation3f{0, 0, 0.75})));
+                         .setWorldTransform(Isometry3f(Translation3f{0, 1.0, 1.15})));
 
 
 }

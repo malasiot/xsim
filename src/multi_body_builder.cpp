@@ -41,7 +41,7 @@ MBJoint &MultiBodyBuilder::addJoint(const std::string &name, JointType type, con
 }
 
 MBLink *MultiBodyBuilder::findLink(const string &name) {
-   return nullptr ;
+    return nullptr ;
 }
 
 
@@ -106,13 +106,13 @@ MultiBodyBuilder & MultiBodyBuilder::loadURDF(const URDFRobot &rb) {
             } else if ( const URDFCylinderGeometry *g = dynamic_cast<const URDFCylinderGeometry *>(geom.get()) ) {
                 shape.reset(new CylinderCollisionShape(g->radius_, g->height_/2.0, CylinderCollisionShape::ZAxis))  ;
             } else if ( const URDFMeshGeometry *g = dynamic_cast<const URDFMeshGeometry *>(geom.get()) ) {
-               shape.reset(new ConvexHullCollisionShape(g->path_, g->scale_));
+                shape.reset(new ConvexHullCollisionShape(g->path_, g->scale_));
             } else if ( const URDFSphereGeometry *g = dynamic_cast<const URDFSphereGeometry *>(geom.get()) ) {
                 shape.reset(new SphereCollisionShape(g->radius_));
             }
 
             if ( shape ) {
-              //  shape->handle()->setMargin(0.001) ;
+                //  shape->handle()->setMargin(0.001) ;
                 shapes.push_back(shape) ;
                 origins.push_back(col_origin) ;
             } else {
@@ -199,22 +199,22 @@ MultiBodyBuilder & MultiBodyBuilder::loadURDF(const URDFRobot &rb) {
 
         for( const auto &geom: link.visual_geoms_ ) {
 
-                const std::string &matref = geom->material_ref_ ;
+            const std::string &matref = geom->material_ref_ ;
 
-                MaterialPtr mat ;
-                auto mat_it = materials.find(matref) ;
-                if ( mat_it != materials.end() )
-                    mat = mat_it->second ;
+            MaterialPtr mat ;
+            auto mat_it = materials.find(matref) ;
+            if ( mat_it != materials.end() )
+                mat = mat_it->second ;
 
-                Vector3f scale{1, 1, 1} ;
-                NodePtr geom_node = createLinkGeometry(geom.get(), mat, scale) ;
+            Vector3f scale{1, 1, 1} ;
+            NodePtr geom_node = createLinkGeometry(geom.get(), mat, scale) ;
 
-                geom_node->setTransform(local_inertial_frame.inverse() * geom->origin_) ;
+            geom_node->setTransform(local_inertial_frame.inverse() * geom->origin_) ;
 
-                link_node->addChild(geom_node) ;
+            link_node->addChild(geom_node) ;
 
 
-            }
+        }
 
         l.setVisualShape(link_node) ;
     }
