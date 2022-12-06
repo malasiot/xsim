@@ -110,7 +110,7 @@ public:
          auto world = physics.getVisual() ;
          auto robot = world->findNodeByName("base_link") ;
 
-//        physics.setCollisionFeedback(this);
+        physics.setCollisionFeedback(this);
 
         Quaternionf rot{0, -1, 0, 1};
         rot.normalize() ;
@@ -189,8 +189,8 @@ public:
 
     void onUpdate(float delta) override {
          SimulationGui::onUpdate(delta) ;
-//         vector<ContactResult> results ;
-//         physics.contactPairTest(cube_rb, table_mb->getLink("baseLink"), 0.01, results) ;
+    //     vector<ContactResult> results ;
+    //    physics.contactPairTest(target_, table_mb->getLink("baseLink"), 0.01, results) ;
      }
 
     void keyPressEvent(QKeyEvent *event) override {
@@ -256,6 +256,8 @@ void createScene() {
     // load URDFs
     string path = "/home/malasiot/source/xsim/data/" ;
     URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
+    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.67}));
+
     URDFRobot table = URDFRobot::load(path + "models/table.urdf");
 
     // ur5 + gripper
@@ -264,8 +266,7 @@ void createScene() {
                                 .setFixedBase()
                                 .setLinearDamping(0.f)
                                 .setAngularDamping(0.f)
-                                .setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.67}))
-                                ) ;
+                             ) ;
 
     robot_mb->setJointPosition("shoulder_lift_joint", -0.6);
     robot_mb->setJointPosition("elbow_joint", 0.2);

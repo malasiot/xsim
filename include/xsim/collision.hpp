@@ -38,7 +38,7 @@ public:
         handle_->setLocalScaling(btVector3(scale, scale, scale)) ;
     }
 
-    void setMargin(float v) {
+    virtual void setMargin(float v) {
         handle_->setMargin(v) ;
     }
 
@@ -127,6 +127,13 @@ class ConvexHullCollisionShape: public CollisionShape {
 
 public:
     ConvexHullCollisionShape(const std::string &path, const Eigen::Vector3f &scale = {1, 1, 1}) ;
+
+    void setMargin(float v) override {
+        btConvexHullShape *shape = static_cast<btConvexHullShape *>(handle_.get()) ;
+        shape->setMargin(v) ;
+        shape->optimizeConvexHull() ;
+        shape->recalcLocalAabb();
+    }
 
 protected:
 

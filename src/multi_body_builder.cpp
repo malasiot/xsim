@@ -55,6 +55,9 @@ void MultiBodyBuilder::setMimic(const URDFJoint &joint, MBJoint &j) {
 
 
 MultiBodyBuilder & MultiBodyBuilder::loadURDF(const URDFRobot &rb) {
+
+    base_tr_ = rb.worldTransform() ;
+
     map<string, MaterialPtr> materials ;
 
     // create materials

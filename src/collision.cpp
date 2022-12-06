@@ -121,6 +121,7 @@ void ConvexHullCollisionShape::create(const aiScene *scene, const Vector3f &scal
    }
 
    btConvexHullShape* convexHull = new btConvexHullShape(reinterpret_cast<btScalar *>(&vertices[0]), nv, sizeof(btVector3));
+
    convexHull->optimizeConvexHull();
    convexHull->recalcLocalAabb();
 

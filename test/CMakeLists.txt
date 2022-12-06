@@ -43,3 +43,6 @@ add_executable(test_manipulator test_manipulator.cpp
 ompl_planner.cpp ompl_planner.hpp)
 set_target_properties(test_manipulator PROPERTIES AUTOMOC TRUE)
 target_link_libraries(test_manipulator xsim ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})
+
+add_executable(test_collisions test_collisions.cpp)
+target_link_libraries(test_collisions xsim ${BULLET_LIBRARIES})
