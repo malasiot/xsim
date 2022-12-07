@@ -121,29 +121,30 @@ public:
         pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
 
 
-       // ik(*robot_mb, pose, M_PI/4) ;
+        ik(*robot_mb, pose, M_PI/4) ;
         openGripper() ;
 
+        Vector3f ik_center(0, 0, 0.2) ;
+
         target_.reset(new Node) ;
+        target_->setTransform(Isometry3f(Translation3f(ik_center))) ;
         GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
         PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
         MaterialPtr mat(material) ;
         target_->addDrawable(geom, mat) ;
         robot->addChild(target_) ;
 
-        gizmo_.reset(new TransformGizmo(camera_, 0.15)) ;
-        robot->addChild(gizmo_) ;
-        gizmo_->setOrder(2) ;
-        gizmo_->setVisible(true) ;
+        gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
+        gizmo_->gizmo()->show(true) ;
+        gizmo_->gizmo()->setOrder(2) ;
 
-
-        gizmo_->setCallback([robot, rot](TransformGizmoEvent e, const Affine3f &f) {
-            if ( e == TRANSFORM_GIZMO_MOTION_ENDED )  {
+        gizmo_->setCallback([robot, rot, ik_center](TransformManipulatorEvent e, const Affine3f &f) {
+            if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
                 Isometry3f p = Isometry3f::Identity() ;
-                p.translation() = f.translation() ;
+                p.translation() = f.translation()  ;
                 p.linear() = rot.matrix() ;
                 ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-            } else if ( e == TRANSFORM_GIZMO_MOVING ) {
+            } else if ( e == TRANSFORM_MANIP_MOVING ) {
                 cout << f.translation().adjoint() << endl ;
             }
 
@@ -241,7 +242,7 @@ public:
         cout << r.a_->getName() << ' ' << r.b_->getName() << endl ;
     }
 
-    std::shared_ptr<TransformGizmo> gizmo_;
+    std::shared_ptr<TransformManipulator> gizmo_;
     NodePtr target_ ;
 
 };
@@ -267,6 +268,7 @@ void createScene() {
                                 ) ;
 
     robot_mb->setJointPosition("shoulder_lift_joint", -0.6);
+    robot_mb->setJointPosition("elbow_joint", 0.2);
 
     // table
     table_mb = physics.addMultiBody(MultiBodyBuilder(table).setName("table"));
@@ -282,7 +284,7 @@ void createScene() {
                          .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.08, 0.08, 0.08)))
                          .makeVisualShape({1.0, 0.1, 0.6, 1})
                          .setName("cube")
-                         .setWorldTransform(Isometry3f(Translation3f{0, 1.0, 1.15})));
+                         .setWorldTransform(Isometry3f(Translation3f{0.5, 0.25, 0.7})));
 
 
 }

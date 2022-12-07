@@ -1,5 +1,5 @@
-#ifndef XVIZ_PHYSICS_KINEMATIC_HPP
-#define XVIZ_PHYSICS_KINEMATIC_HPP
+#ifndef XSIM_KINEMATIC_HPP
+#define XSIM_KINEMATIC_HPP
 
 #include <memory>
 
@@ -11,12 +11,12 @@
 #include <xviz/robot/urdf_robot.hpp>
 #include <xsim/rigid_body.hpp>
 
-namespace xviz {
+namespace xsim {
 
-class ArticulatedCollisionShape: public GroupCollisionShape {
+class KinematicCollisionShape: public GroupCollisionShape {
 public :
 
-    ArticulatedCollisionShape(const URDFRobot &robot) {
+    KinematicCollisionShape(const xviz::URDFRobot &robot) {
         create(robot) ;
     }
 
@@ -25,6 +25,7 @@ private:
     struct Link {
         uint col_shape_index_ ;
         Eigen::Isometry3f origin_ ;
+        CollisionShapePtr shape_ ;
     };
 
     struct Joint {
@@ -39,11 +40,11 @@ private:
     std::map<std::string, Link> links_ ;
     std::map<std::string, Joint> joints_ ;
 
-    void create(const URDFRobot &robot) ;
-    static CollisionShapePtr makeCollisionShape(const URDFGeometry *geom) ;
+    void create(const xviz::URDFRobot &robot) ;
+    static CollisionShapePtr makeCollisionShape(const xviz::URDFGeometry *geom) ;
 };
 
-} // namespace xviz
+} // namespace xsim
 
 
 #endif

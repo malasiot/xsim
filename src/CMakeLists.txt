@@ -15,6 +15,8 @@ set(LIB_SOURCES
     soft_body.cpp
     multi_body_builder.cpp
     soft_body_shape.cpp
+    collision_space.cpp
+    kinematic.cpp
 
        ${LIBRARY_INCLUDE_DIR}/world.hpp
        ${LIBRARY_INCLUDE_DIR}/rigid_body.hpp
@@ -25,6 +27,8 @@ set(LIB_SOURCES
        ${LIBRARY_INCLUDE_DIR}/sensor.hpp
        ${LIBRARY_INCLUDE_DIR}/soft_body.hpp
        ${LIBRARY_INCLUDE_DIR}/multi_body_builder.hpp
+       ${LIBRARY_INCLUDE_DIR}/collision_space.hpp
+       ${LIBRARY_INCLUDE_DIR}/kinematic.hpp
 )
 
 add_library(xsim SHARED ${LIB_SOURCES})
