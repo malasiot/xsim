@@ -23,6 +23,7 @@
 #include <QApplication>
 #include <QMainWindow>
 
+#include "mainwindow.hpp"
 #include "ur5_ik_solver.hpp"
 
 using namespace xviz ;
@@ -79,26 +80,6 @@ void ik(MultiBody &body, const Isometry3f &ee, float roll) {
     }
 }
 
-SoftBodyPtr makeCloth() {
-    Isometry3f tr = Isometry3f::Identity();
-    tr.translate(Vector3f(-0.2, 0.3, 0.7)) ;
-
-    SoftBodyShapePtr sbs = SoftBodyShape::fromMeshModel("/home/malasiot/local/bullet3/data/cloth_z_up.obj") ;
-
-    MaterialPtr material(new PhongMaterial(Vector3f{0, 1, 1}));
-    material->setSide(Material::Side::Both) ;
-
-    SoftBodyPtr sb = physics.addSoftBody(SoftBodyBuilder()
-                        .setName("cloth")
-                        .setShape(sbs)
-                        .setMargin(0.05)
-                        .setScale(0.3)
-                        .makeVisualShape(material)
-                        .setWorldTransform(tr)
-                        .setMass(0.2));
-
-    return sb ;
-}
 
 class GUI: public SimulationGui, CollisionFeedback {
 public:
@@ -110,7 +91,7 @@ public:
          auto world = physics.getVisual() ;
          auto robot = world->findNodeByName("base_link") ;
 
-        physics.setCollisionFeedback(this);
+    //    physics.setCollisionFeedback(this);
 
         Quaternionf rot{0, -1, 0, 1};
         rot.normalize() ;
@@ -245,18 +226,19 @@ public:
     std::shared_ptr<TransformManipulator> gizmo_;
     NodePtr target_ ;
 
+public slots:
+    void changeControlValue(const std::string &jname, float v) {
+        cout << jname << ' ' << v << endl ;
+        robot_mb->setJointPosition(jname, v) ;
+    }
+
 };
 
 
-void createScene() {
+void createScene(const std::string &path, const URDFRobot &robot) {
 
     physics.createSoftMultiBodyDynamicsWorld();
     physics.setGravity({0, 0, -10});
-
-    // load URDFs
-    string path = "/home/malasiot/source/xsim/data/" ;
-    URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
-    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.67}));
 
     URDFRobot table = URDFRobot::load(path + "models/table.urdf");
 
@@ -274,10 +256,6 @@ void createScene() {
     // table
     table_mb = physics.addMultiBody(MultiBodyBuilder(table).setName("table"));
 
-    // cloth
-
-  //  cloth = makeCloth() ;
-
     // a cube to grasp
 
     cube_rb = physics.addRigidBody(RigidBodyBuilder()
@@ -286,23 +264,36 @@ void createScene() {
                          .makeVisualShape({1.0, 0.1, 0.6, 1})
                          .setName("cube")
                          .setWorldTransform(Isometry3f(Translation3f{0.5, 0.25, 0.7})));
-
-
 }
 
 int main(int argc, char **argv)
 {
-    createScene() ;
+
 
     QApplication app(argc, argv);
 
     SceneViewer::initDefaultGLContext() ;
    // ResourceLoader::instance().setLocalPath("/home/malasiot/source/xviz/data/physics/models/");
 
-    QMainWindow window ;
-    window.setCentralWidget(new GUI(physics)) ;
+    // load URDFs
+    string path = "/home/malasiot/source/xsim/data/" ;
+    URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
+    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.67}));
+
+    createScene(path, robot) ;
+
+GUI *gui = new GUI(physics) ;
+    MainWindow window ;
+    window.setGui(gui) ;
     window.resize(512, 512) ;
     window.show() ;
+
+    QObject::connect(&window, &MainWindow::controlValueChanged, gui, &GUI::changeControlValue) ;
+
+    for( const auto &jname: arm_joint_names ) {
+        URDFJoint *j = robot.findJoint(jname) ;
+        window.addSlider(jname, j->lower_, j->upper_) ;
+    }
 
     return app.exec();
 }

@@ -37,9 +37,14 @@ set_target_properties(test_vehicle PROPERTIES AUTOMOC TRUE)
 target_link_libraries(test_vehicle xsim ${BULLET_LIBRARIES})
 
 find_package(OMPL REQUIRED)
-add_executable(test_manipulator test_manipulator.cpp
-    bullet_gui.cpp bullet_gui.hpp
-    ur5_ik_solver.cpp ur5_ik_solver.hpp
+add_executable(test_manipulator
+    test_manipulator.cpp
+    mainwindow.hpp
+    mainwindow.cpp
+    bullet_gui.cpp
+    bullet_gui.hpp
+    ur5_ik_solver.cpp
+    ur5_ik_solver.hpp
 ompl_planner.cpp ompl_planner.hpp)
 set_target_properties(test_manipulator PROPERTIES AUTOMOC TRUE)
 target_link_libraries(test_manipulator xsim ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})

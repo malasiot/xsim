@@ -16,9 +16,8 @@ namespace xsim {
 
 struct CollisionObjectPrivate {
     std::string name_ ;
-    CollisionShapePtr shape_ ;
     std::unique_ptr<btCollisionObject> obj_ ;
-    Isometry3f wtr_ ;
+    CollisionShapePtr shape_ ;
 };
 
 class CollisionLinkChecker {
@@ -40,8 +39,6 @@ struct CollisionFilterCallback : public btOverlapFilterCallback
 
         CollisionObjectPrivate *k0 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy0->m_clientObject)->getUserPointer());
         CollisionObjectPrivate *k1 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy1->m_clientObject)->getUserPointer());
-
-
 
         if ( isActive(k0->name_) && isActive(k1->name_) && isActive(k0->name_, k1->name_) ) {
    //        cout << k0->name_ << ' ' << k1->name_ << endl ;
@@ -88,35 +85,6 @@ public:
 
 };
 
-void saveSolidCube(ofstream &strm, const btVector3 &vmin, const btVector3 &vmax, int &offset) {
-
-    std::vector<btVector3> normals{{ 0.0, 0.0, 1.0 }, {0.0, 0.0, -1.0}, { 0.0, 1.0, 0.0 }, {1.0, 0.0, 0.0}, {0.0, -1.0, 0.0}, { -1.0, 0.0, 0.0}} ;
-    std::vector<btVector3> vertices = {{ vmin.getX(), vmax.y(), vmax.z() }, { vmax.x(), vmax.y(), vmax.z() }, { vmax.x(), vmin.y(), vmax.z() },
-                                      { vmin.x(), vmin.y(), vmax.z() },
-                                      { vmin.x(), vmax.y(), vmin.z() }, { vmax.x(), vmax.y(), vmin.z() }, { vmax.x(), vmin.y(), vmin.z() },
-                                      { vmin.x(), vmin.y(), vmin.z() } } ;
-
-    std::vector<uint32_t> vtx_indices {  1, 0, 3,  7, 4, 5,  4, 0, 1,  5, 1, 2,  2, 3, 7,  0, 4, 7,  1, 3, 2,  7, 5, 6,  4, 1, 5,  5, 2, 6,  2, 7, 6, 0, 7, 3};
-    std::vector<uint32_t> nrm_indices {  0, 0, 0,  1, 1, 1,  2, 2, 2,  3, 3, 3,  4, 4, 4,  5, 5, 5,  0, 0, 0,  1, 1, 1,  2, 2, 2,  3, 3, 3,  4, 4, 4, 5, 5, 5};
-
-    for( const auto &v: vertices ) {
-        strm << "v " << v.x() << " " << v.y() << " " << v.z() << endl ;
-    }
-
-    for( const auto &n: normals ) {
-        strm << "vn " << n.x() << ' ' << n.y() << ' ' << n.z() << endl ;
-    }
-
-    for( int i=0 ; i< vtx_indices.size() ; i++ ) {
-        strm << "f " << vtx_indices[i]+offset+1 << "//" << nrm_indices[i]+offset+1 << ' ' ; ++i ;
-        strm <<  vtx_indices[i]+offset+1 << "//" << nrm_indices[i]+offset+1 << ' ' ; ++i ;
-        strm <<  vtx_indices[i]+offset+1 << "//" << nrm_indices[i]+offset+1 << endl ;
-    }
-
-    offset += 8 ;
-
-}
-
 CollisionSpace::CollisionSpace() {
     broadphase_.reset(new btDbvtBroadphase());
     config_.reset(new btDefaultCollisionConfiguration())  ;
@@ -142,10 +110,9 @@ void CollisionSpace::addCollisionObject(const std::string &name, const Collision
     collisionObj->setWorldTransform(c) ;
 
     std::shared_ptr<CollisionObjectPrivate> data(new CollisionObjectPrivate) ;
-    data->wtr_ = tr ;
     data->obj_.reset(collisionObj) ;
-    data->shape_ = shape ;
     data->name_ = name ;
+    data->shape_ = shape ;
 
     collisionObj->setUserPointer(reinterpret_cast<void*>(data.get()));
 
@@ -256,9 +223,9 @@ bool CollisionSpace::hasCollision() {
         assert(coA != nullptr) ;
 
         const CollisionObjectPrivate *coB = static_cast<const CollisionObjectPrivate *>(obB->getUserPointer());
-        //   assert(coB != nullptr) ;
+           assert(coB != nullptr) ;
 
-        cout << "collision: " << coA->name_ << ' ' << coB->name_ << endl ;
+      //  cout << "collision: " << coA->name_ << ' ' << coB->name_ << endl ;
 
         int numContacts = contactManifold->getNumContacts();
 
