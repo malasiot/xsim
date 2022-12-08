@@ -2,8 +2,18 @@
 #include <Eigen/Geometry>
 
 using namespace Eigen ;
+using namespace std ;
 
 #define UR5_PARAMS
+
+const char *UR5IKSolver::ur5_joint_names[6] = {
+    "shoulder_pan_joint",
+    "shoulder_lift_joint",
+    "elbow_joint",
+    "wrist_1_joint",
+    "wrist_2_joint",
+    "wrist_3_joint"
+};
 
 const double ZERO_THRESH = 0.00000001;
 
@@ -344,7 +354,20 @@ typedef std::pair<int, double> idx_double;
 bool comparator(const idx_double& l, const idx_double& r)
 { return l.second < r.second; }
 
-bool UR5IKSolver::solve(const double jseed[], const Eigen::Isometry3f &target, float roll, double j[])
+static void getJointState(const JointState &src, double s[]) {
+    for( int i=0 ; i<6 ; i++ ) {
+        auto it = src.find(UR5IKSolver::ur5_joint_names[i]) ;
+        assert(it != src.end()) ;
+        s[i] = it->second ;
+    }
+}
+
+static void setJointState(const vector<double> &s, JointState &dst ) {
+    for( int i=0 ; i<6 ; i++ ) {
+        dst.emplace(UR5IKSolver::ur5_joint_names[i], s[i]) ;
+    }
+}
+bool UR5IKSolver::solve(const Eigen::Isometry3f &target, vector<JointState> &solutions)
 {
     Matrix4d mat = target.matrix().cast<double>() ;
 
@@ -354,7 +377,7 @@ bool UR5IKSolver::solve(const double jseed[], const Eigen::Isometry3f &target, f
         for( uint j=0 ; j<4 ; j++ )
             t[c++] = mat(i, j) ;
 
-    int num_sols = inverse(t, (double *)q_sols, roll);
+    int num_sols = inverse(t, (double *)q_sols, 0);
 
     int num_valid_sols;
     std::vector< std::vector<double> > q_valid_sols;
@@ -400,13 +423,34 @@ bool UR5IKSolver::solve(const double jseed[], const Eigen::Isometry3f &target, f
 
     if ( q_valid_sols.empty() ) return false;
 
+    for( const auto &sol: q_valid_sols ) {
+        JointState state ;
+        setJointState(sol, state) ;
+        solutions.emplace_back(state) ;
+    }
+
+
+    return true ;
+}
+
+double jvalue(const JointState &s, const std::string &name) {
+    auto it = s.find(name) ;
+    assert(it != s.end()) ;
+    return it->second ;
+}
+bool UR5IKSolver::solve(const Eigen::Isometry3f &target, const JointState &seed, JointState &solution)
+{
+    vector<JointState> solutions ;
+    if ( !solve(target, solutions) ) return false ;
+
     // use weighted absolute deviations to determine the solution closest the seed state
     std::vector<idx_double> weighted_diffs;
-    for(uint16_t i=0; i<q_valid_sols.size(); i++) {
+    for(uint16_t i=0; i<solutions.size(); i++) {
         double cur_weighted_diff = 0;
         for(uint16_t j=0; j<6; j++) {
+            string jname = ur5_joint_names[j] ;
             // solution violates the consistency_limits, throw it out
-            double abs_diff = std::fabs(jseed[j] - q_valid_sols[i][j]);
+            double abs_diff = std::fabs(jvalue(seed, jname) - jvalue(solutions[i], jname));
             cur_weighted_diff += abs_diff;
         }
         weighted_diffs.push_back(idx_double(i, cur_weighted_diff));
@@ -416,10 +460,7 @@ bool UR5IKSolver::solve(const double jseed[], const Eigen::Isometry3f &target, f
 
 
     int cur_idx = weighted_diffs[0].first;
-    auto solution = q_valid_sols[cur_idx];
-
-    std::copy(solution.begin(), solution.end(), j );
-
+    solution = solutions[cur_idx];
 
     return true ;
 }

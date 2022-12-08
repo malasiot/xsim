@@ -145,17 +145,17 @@ class MultiBody {
     MultiBody() = default ;
 public:
 
-    float getJointPosition(const std::string &name) const ;
-    float getJointVelocity(const std::string &name) const ;
-    float getJointTorque(const std::string &name) const  ;
+    double getJointPosition(const std::string &name) const ;
+    double getJointVelocity(const std::string &name) const ;
+    double getJointTorque(const std::string &name) const  ;
 
-    void setJointPosition(const std::string &name, float v) ;
-    void setJointVelocity(const std::string &name, float v) ;
-    void setJointTorque(const std::string &name, float v) ;
-    void setJointMaxForce(const std::string &name, float v) ;
+    void setJointPosition(const std::string &name, double v) ;
+    void setJointVelocity(const std::string &name, double v) ;
+    void setJointTorque(const std::string &name, double v) ;
+    void setJointMaxForce(const std::string &name, double v) ;
 
-    void setTargetVelocity(const std::string &name, float v) ;
-    void setTargetPosition(const std::string &name, float v) ;
+    void setTargetVelocity(const std::string &name, double v) ;
+    void setTargetPosition(const std::string &name, double v) ;
 
     std::string name() const ;
 

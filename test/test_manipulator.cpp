@@ -14,8 +14,6 @@
 
 #include <xsim/world.hpp>
 
-#include "bullet_gui.hpp"
-
 #include <xsim/multi_body.hpp>
 #include <xsim/soft_body.hpp>
 #include <xsim/soft_body_shape.hpp>
@@ -24,7 +22,8 @@
 #include <QMainWindow>
 
 #include "mainwindow.hpp"
-#include "ur5_ik_solver.hpp"
+
+#include "gui.hpp"
 
 using namespace xviz ;
 using namespace xsim ;
@@ -36,219 +35,22 @@ PhysicsWorld physics ;
 
 MultiBodyPtr robot_mb, table_mb ;
 RigidBodyPtr cube_rb ;
-SoftBodyPtr cloth ;
-
-static const char *arm_joint_names[] = {
-    "shoulder_pan_joint",
-    "shoulder_lift_joint",
-    "elbow_joint",
-    "wrist_1_joint",
-    "wrist_2_joint",
-    "wrist_3_joint"
-};
-
-static const char *gripper_roll = "wrist_3_joint" ;
-static const char *mimic_joint_names[] = {
-    "robotiq_85_right_knuckle_joint",
-                        "robotiq_85_left_inner_knuckle_joint",
-                        "robotiq_85_right_inner_knuckle_joint",
-                        "robotiq_85_left_finger_tip_joint",
-                        "robotiq_85_right_finger_tip_joint"
-};
-
-static const char *gripper_main_control_joint_name = "robotiq_85_left_knuckle_joint";
-
-
-void ik(MultiBody &body, const Isometry3f &ee, float roll) {
-
-
-    double jseed[6], j[6] ;
-
-    for( uint i=0 ; i<6 ; i++ ) {
-        double pos = body.getJointPosition(arm_joint_names[i]);
-        jseed[i] = pos ;
-    }
-
-    UR5IKSolver solver ;
-    if ( solver.solve(jseed, ee, roll, j) ) {
-
-        cout << "ok" << endl ;
-        for( uint i=0 ; i<6 ; i++ ) {
-            Joint *ctrl = body.findJoint(arm_joint_names[i]) ;
-            ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(j[i]));
-        }
-    }
-}
-
-
-class GUI: public SimulationGui, CollisionFeedback {
-public:
-    GUI(xsim::PhysicsWorld &physics):
-        SimulationGui(physics) {
-
-        initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
-
-         auto world = physics.getVisual() ;
-         auto robot = world->findNodeByName("base_link") ;
-
-    //    physics.setCollisionFeedback(this);
-
-        Quaternionf rot{0, -1, 0, 1};
-        rot.normalize() ;
-
-        Isometry3f pose ;
-        pose.setIdentity() ;
-        pose.linear() = rot.matrix() ;
-        pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
-
-
-        ik(*robot_mb, pose, M_PI/4) ;
-        openGripper() ;
-
-        Vector3f ik_center(0, 0, 0.2) ;
-
-        target_.reset(new Node) ;
-        target_->setTransform(Isometry3f(Translation3f(ik_center))) ;
-        GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
-        PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
-        MaterialPtr mat(material) ;
-        target_->addDrawable(geom, mat) ;
-        robot->addChild(target_) ;
-
-        gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
-        gizmo_->gizmo()->show(true) ;
-        gizmo_->gizmo()->setOrder(2) ;
-
-        gizmo_->setCallback([robot, rot, ik_center](TransformManipulatorEvent e, const Affine3f &f) {
-            if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
-                Isometry3f p = Isometry3f::Identity() ;
-                p.translation() = f.translation()  ;
-                p.linear() = rot.matrix() ;
-                ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-            } else if ( e == TRANSFORM_MANIP_MOVING ) {
-                cout << f.translation().adjoint() << endl ;
-            }
-
-        });
-
-        gizmo_->attachTo(target_.get());
-        gizmo_->setLocalTransform(true);
-
-    }
-
-    void openGripper() {
-        Joint *ctrl = robot_mb->findJoint(gripper_main_control_joint_name) ;
-
-        MotorControl params(POSITION_CONTROL) ;
-        params.setMaxVelocity(1.5);
-        params.setMaxForce(0.1) ;
-        params.setTargetPosition(0.001) ;
-        ctrl->setMotorControl(params);
-
-        for( Joint *mimic: ctrl->getMimicJoints()) {
-            params.setTargetPosition(mimic->getMimicMultiplier() * 0.001) ;
-            mimic->setMotorControl(params);
-        }
-
-    }
-
-    void closeGripper() {
-        Joint *ctrl = robot_mb->findJoint(gripper_main_control_joint_name) ;
-
-        MotorControl params(POSITION_CONTROL) ;
-        params.setMaxVelocity(1.5);
-        params.setMaxForce(0.1) ;
-        params.setTargetPosition(0.8) ;
-        ctrl->setMotorControl(params);
-
-        for( Joint *mimic: ctrl->getMimicJoints()) {
-            params.setTargetPosition(mimic->getMimicMultiplier() * 0.8) ;
-            mimic->setMotorControl(params);
-        }
-
-    }
-
-    void onUpdate(float delta) override {
-         SimulationGui::onUpdate(delta) ;
-    //     vector<ContactResult> results ;
-    //    physics.contactPairTest(target_, table_mb->getLink("baseLink"), 0.01, results) ;
-     }
-
-    void keyPressEvent(QKeyEvent *event) override {
-        if ( event->key() == Qt::Key_Q ) {
-            openGripper();
-        } else if ( event->key() == Qt::Key_W ) {
-            closeGripper() ;
-        } else if ( event->key() == Qt::Key_L )
-            gizmo_->setLocalTransform(true) ;
-        else if ( event->key() == Qt::Key_G )
-            gizmo_->setLocalTransform(false) ;
-        else SimulationGui::keyPressEvent(event) ;
-
-        update() ;
-
-    }
-
-    void mousePressEvent(QMouseEvent *event) override {
-        if ( gizmo_->onMousePressed(event) ) {
-            update() ;
-            return ;
-        }
-
-        SimulationGui::mousePressEvent(event) ;
-    }
-
-    void mouseReleaseEvent(QMouseEvent * event) override {
-        if ( gizmo_->onMouseReleased(event) ) {
-            update() ;
-            return ;
-        }
-
-        SimulationGui::mouseReleaseEvent(event) ;
-    }
-
-    void mouseMoveEvent(QMouseEvent *event) override {
-        if ( gizmo_->onMouseMoved(event) ) {
-            update() ;
-            return ;
-        }
-
-        SimulationGui::mouseMoveEvent(event) ;
-    }
-
-
-    void processContact(ContactResult &r) override {
-        if ( r.a_ == nullptr || r.b_ == nullptr ) return ;
-        if ( r.a_->getName() == "ground" || r.b_->getName() == "ground" ) return  ;
-        cout << r.a_->getName() << ' ' << r.b_->getName() << endl ;
-    }
-
-    std::shared_ptr<TransformManipulator> gizmo_;
-    NodePtr target_ ;
-
-public slots:
-    void changeControlValue(const std::string &jname, float v) {
-        cout << jname << ' ' << v << endl ;
-        robot_mb->setJointPosition(jname, v) ;
-    }
-
-};
 
 
 void createScene(const std::string &path, const URDFRobot &robot) {
 
-    physics.createSoftMultiBodyDynamicsWorld();
+    physics.createMultiBodyDynamicsWorld();
     physics.setGravity({0, 0, -10});
 
     URDFRobot table = URDFRobot::load(path + "models/table.urdf");
 
     // ur5 + gripper
     robot_mb = physics.addMultiBody(MultiBodyBuilder(robot)
-                                .setName("robot")
-                                .setFixedBase()
-                                .setLinearDamping(0.f)
-                                .setAngularDamping(0.f)
-                             ) ;
+                                    .setName("robot")
+                                    .setFixedBase()
+                                    .setLinearDamping(0.f)
+                                    .setAngularDamping(0.f)
+                                    ) ;
 
     robot_mb->setJointPosition("shoulder_lift_joint", -0.6);
     robot_mb->setJointPosition("elbow_joint", 0.2);
@@ -259,41 +61,44 @@ void createScene(const std::string &path, const URDFRobot &robot) {
     // a cube to grasp
 
     cube_rb = physics.addRigidBody(RigidBodyBuilder()
-                         .setMass(0.1)
-                         .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.08, 0.08, 0.08)))
-                         .makeVisualShape({1.0, 0.1, 0.6, 1})
-                         .setName("cube")
-                         .setWorldTransform(Isometry3f(Translation3f{0.5, 0.25, 0.7})));
+                                   .setMass(0.1)
+                                   .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.08, 0.08, 0.08)))
+                                   .makeVisualShape({1.0, 0.1, 0.6, 1})
+                                   .setName("cube")
+                                   .setWorldTransform(Isometry3f(Translation3f{0.5, 0.25, 0.7})));
 }
 
 int main(int argc, char **argv)
 {
-
-
     QApplication app(argc, argv);
 
     SceneViewer::initDefaultGLContext() ;
-   // ResourceLoader::instance().setLocalPath("/home/malasiot/source/xviz/data/physics/models/");
+    // ResourceLoader::instance().setLocalPath("/home/malasiot/source/xviz/data/physics/models/");
 
     // load URDFs
     string path = "/home/malasiot/source/xsim/data/" ;
     URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
-    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.67}));
+    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.65}));
 
     createScene(path, robot) ;
 
-GUI *gui = new GUI(physics) ;
+    Robot rb(robot_mb) ;
+
+    GUI *gui = new GUI(physics, rb) ;
     MainWindow window ;
     window.setGui(gui) ;
-    window.resize(512, 512) ;
-    window.show() ;
+    window.resize(1024, 1024) ;
+
 
     QObject::connect(&window, &MainWindow::controlValueChanged, gui, &GUI::changeControlValue) ;
+    QObject::connect(gui, &GUI::robotStateChanged, &window, &MainWindow::updateControls);
 
-    for( const auto &jname: arm_joint_names ) {
+    for( const auto &jname: rb.armJointNames() ) {
         URDFJoint *j = robot.findJoint(jname) ;
         window.addSlider(jname, j->lower_, j->upper_) ;
     }
+    window.endSliders() ;
 
+    window.show() ;
     return app.exec();
 }

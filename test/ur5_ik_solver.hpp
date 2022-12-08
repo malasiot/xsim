@@ -3,6 +3,8 @@
 #include <Eigen/Geometry>
 #include <xsim/multi_body.hpp>
 
+using JointState = std::map<std::string,  double> ;
+
 class UR5IKSolver {
     public:
     // Joint names
@@ -20,9 +22,13 @@ class UR5IKSolver {
     // analytic IK for UR5 arm
     // takes as input seed joint positions and target end effector position and returns joints or false
     // if no solution found
-    bool solve(const double jseed[6], const Eigen::Isometry3f &target, float roll, double j[6]) ;
-private:
+    bool solve(const Eigen::Isometry3f &target, const JointState &seed, JointState &solution) ;
+    bool solve(const Eigen::Isometry3f &target, std::vector<JointState> &solutions) ;
 
     static double limits_min_[6], limits_max_[6] ;
+    static const char *ur5_joint_names[6] ;
 
 };
+
+
+

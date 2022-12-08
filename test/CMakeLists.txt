@@ -45,9 +45,20 @@ add_executable(test_manipulator
     bullet_gui.hpp
     ur5_ik_solver.cpp
     ur5_ik_solver.hpp
-ompl_planner.cpp ompl_planner.hpp)
+    gui.cpp
+    gui.hpp
+    robot.cpp
+    robot.hpp
+)
 set_target_properties(test_manipulator PROPERTIES AUTOMOC TRUE)
-target_link_libraries(test_manipulator xsim ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})
+target_link_libraries(test_manipulator xsim ${BULLET_LIBRARIES} )
 
 add_executable(test_collisions test_collisions.cpp)
 target_link_libraries(test_collisions xsim ${BULLET_LIBRARIES})
+
+add_executable(test_planner test_planner.cpp
+    ur5_ik_solver.cpp
+    ur5_ik_solver.hpp
+    ompl_planner.cpp
+    ompl_planner.hpp)
+target_link_libraries(test_planner xsim ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})

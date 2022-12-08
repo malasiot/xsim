@@ -441,39 +441,39 @@ int MultiBody::getJointIndex(const string &name) const {
     return j->childLink()->mb_index_ ;
 }
 
-float MultiBody::getJointPosition(const string &name) const {
+double MultiBody::getJointPosition(const string &name) const {
     assert(body_) ;
-    return static_cast<float>(body_->getJointPos(getJointIndex(name))) ;
+    return static_cast<double>(body_->getJointPos(getJointIndex(name))) ;
 }
 
-float MultiBody::getJointVelocity(const string &name) const {
+double MultiBody::getJointVelocity(const string &name) const {
     assert(body_) ;
-    return static_cast<float>(body_->getJointVel(getJointIndex(name))) ;
+    return static_cast<double>(body_->getJointVel(getJointIndex(name))) ;
 }
 
-float MultiBody::getJointTorque(const string &name) const {
+double MultiBody::getJointTorque(const string &name) const {
     assert(body_) ;
-    return static_cast<float>(body_->getJointTorque(getJointIndex(name))) ;
+    return static_cast<double>(body_->getJointTorque(getJointIndex(name))) ;
 }
 
-void MultiBody::setJointPosition(const string &name, float v) {
+void MultiBody::setJointPosition(const string &name, double v) {
     assert(body_) ;
     body_->setJointPos(getJointIndex(name), static_cast<btScalar>(v)) ;
     body_->setJointVel(getJointIndex(name), 0) ;
     updateTransforms() ;
 }
 
-void MultiBody::setJointVelocity(const string &name, float v) {
+void MultiBody::setJointVelocity(const string &name, double v) {
     assert(body_) ;
     body_->setJointVel(getJointIndex(name), static_cast<btScalar>(v)) ;
 }
 
-void MultiBody::setJointTorque(const string &name, float v) {
+void MultiBody::setJointTorque(const string &name, double v) {
     assert(body_) ;
     body_->addJointTorque(getJointIndex(name), static_cast<btScalar>(v)) ;
 }
 
-void MultiBody::setTargetPosition(const string &name, float v)
+void MultiBody::setTargetPosition(const string &name, double v)
 {
     Joint *j = findJoint(name) ;
     assert(j) ;
