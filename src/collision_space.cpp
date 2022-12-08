@@ -131,40 +131,9 @@ CollisionSpace::~CollisionSpace() {
 
 }
 
-void getAABB(const btCollisionObject *obj, btVector3& aabb_min, btVector3& aabb_max)
-  {
-    obj->getCollisionShape()->getAabb(obj->getWorldTransform(), aabb_min, aabb_max);
-    const btScalar& distance = obj->getContactProcessingThreshold();
-    // note that bullet expands each AABB by 4 cm
-  //  btVector3 contact_threshold(distance, distance, distance);
- //   aabb_min -= contact_threshold;
- //   aabb_max += contact_threshold;
-  }
-
-void updateBroadphaseAABB(const btCollisionObject * cow,
-                                 const std::unique_ptr<btBroadphaseInterface>& broadphase,
-                                 const std::unique_ptr<btCollisionDispatcher>& dispatcher)
-{
-  btVector3 aabb_min, aabb_max;
-  getAABB(cow, aabb_min, aabb_max);
-
-  assert(cow->getBroadphaseHandle() != nullptr);
-  broadphase->setAabb((btBroadphaseProxy *)cow->getBroadphaseHandle(), aabb_min, aabb_max, dispatcher.get());
-}
-
-void addCollisionObjectToBroadphase(btCollisionObject *obj, int filter_group, int filter_mask,
-                                    const std::unique_ptr<btBroadphaseInterface>& broadphase,
-                                    std::unique_ptr<btCollisionDispatcher>& dispatcher) {
-    btVector3 aabb_min, aabb_max;
-    getAABB(obj, aabb_min, aabb_max);
-
-    int type = obj->getCollisionShape()->getShapeType();
-    obj->setBroadphaseHandle(broadphase->createProxy(aabb_min, aabb_max, type, (void *)obj, filter_group, filter_mask,
-                                                       dispatcher.get()));
-}
- ofstream strm("/tmp/aabb.obj") ;
- int offset = 0 ;
 void CollisionSpace::addCollisionObject(const std::string &name, const CollisionShapePtr &shape, const Isometry3f &tr) {
+    assert(!name.empty());
+
     btCollisionObject *collisionObj = new btCollisionObject() ;
 
     collisionObj->setCollisionShape(shape->handle()) ;
@@ -182,27 +151,21 @@ void CollisionSpace::addCollisionObject(const std::string &name, const Collision
 
     world_->addCollisionObject(collisionObj, int(btBroadphaseProxy::StaticFilter), int(btBroadphaseProxy::KinematicFilter)) ;
 
-    btVector3 aabb_min, aabb_max ;
-    getAABB(collisionObj, aabb_min, aabb_max) ;
-
-
-        saveSolidCube(strm, aabb_min, aabb_max, offset) ;
-    objects_.emplace_back(data) ;
-
-
+    objects_.emplace(name, data) ;
 }
 
-void CollisionSpace::addRobot(const xviz::URDFRobot &robot, bool self_collisions)
+void CollisionSpace::addRobot(const xviz::URDFRobot &robot, float margin, bool disable_self_collisions)
 {
-
-    uint count = 0 ;
 
     map<string, Isometry3f> link_transforms ;
     robot.computeLinkTransforms(link_transforms) ;
 
+    vector<string> link_names ;
     for( const auto &bp: robot.links_ ) {
         const string &name = bp.first ;
         const URDFLink &link = bp.second ;
+
+        link_names.push_back(name) ;
 
         vector<CollisionShapePtr> shapes ;
         vector<Isometry3f> origins ;
@@ -236,15 +199,24 @@ void CollisionSpace::addRobot(const xviz::URDFRobot &robot, bool self_collisions
                 gc->addChild(shapes[i], origins[i]) ;
             }
             col_shape.reset(gc) ;
-            col_shape->setMargin(0.00);
-        }
-  col_shape->setMargin(0.04);
+         }
+        col_shape->setMargin(margin);
+
         auto it = link_transforms.find(link.name_) ;
 
      //   cout << link.name_ << ' ' << (it->second* col_origin).matrix() << endl ;
 
         addCollisionObject(link.name_, col_shape, it->second * col_origin);
 
+    }
+
+    if ( disable_self_collisions ) {
+        for( const auto &l1: link_names ) {
+            for( const auto &l2: link_names ) {
+                if ( l1 != l2 )
+                    disableCollision(l1, l2);
+            }
+        }
     }
 
 
@@ -269,37 +241,10 @@ CollisionShapePtr CollisionSpace::makeCollisionShape(const URDFGeometry *geom) {
     return shape ;
 }
 
-struct OverlapCallback: public btOverlapCallback
-{
-    virtual ~OverlapCallback()
-    {
-    }
-    //return true for deletion of the pair
-    bool processOverlap(btBroadphasePair& pair) {
-        auto proxy0 = pair.m_pProxy0 ;
-        auto proxy1 = pair.m_pProxy1 ;
-        assert(static_cast<btCollisionObject*>(proxy0->m_clientObject) != NULL);
-        assert(static_cast<btCollisionObject*>(proxy1->m_clientObject) != NULL);
-
-        CollisionObjectPrivate *k0 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy0->m_clientObject)->getUserPointer());
-        CollisionObjectPrivate *k1 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy1->m_clientObject)->getUserPointer());
-
-        cout << k0->name_ << ' '  << k1->name_ << endl ;
-        return true;
-    }
-
-};
-
-
 bool CollisionSpace::hasCollision() {
-
-
     world_->performDiscreteCollisionDetection();
 
-
     int numManifolds = world_->getDispatcher()->getNumManifolds();
-
- //   if ( numManifolds > 0 ) return true ;
 
     for ( int i = 0; i < numManifolds; ++i ) {
         btPersistentManifold *contactManifold =
@@ -317,7 +262,7 @@ bool CollisionSpace::hasCollision() {
 
         int numContacts = contactManifold->getNumContacts();
 
-        cout << numContacts << endl ;
+        if ( numContacts > 0 ) return true ;
 
     }
     return false ;
@@ -326,6 +271,19 @@ bool CollisionSpace::hasCollision() {
 
 void CollisionSpace::disableCollision(const std::string &l1, const std::string &l2) {
     cb_->excludeLinkPair(l1, l2) ;
+}
+
+void CollisionSpace::updateObjectTransform(const std::string &name, const Eigen::Isometry3f &tr) {
+    auto it = objects_.find(name) ;
+    if ( it == objects_.end() ) return ;
+    std::shared_ptr<CollisionObjectPrivate> p = it->second ;
+    p->obj_->setWorldTransform(toBulletTransform(tr));
+    world_->updateSingleAabb(p->obj_.get());
+}
+
+void CollisionSpace::updateObjectTransforms(const map<string, Isometry3f> &trs) {
+    for( const auto &tp: trs )
+        updateObjectTransform(tp.first, tp.second) ;
 }
 
 }

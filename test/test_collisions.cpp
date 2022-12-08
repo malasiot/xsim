@@ -6,6 +6,9 @@ using namespace Eigen ;
 using namespace std ;
 using namespace xviz ;
 
+vector<string> links = {
+
+};
 vector<pair<string, string>> disabled_pairs = {
 
     {"base_link" ,"shoulder_link" },
@@ -115,10 +118,10 @@ int main(int argc, char *argv[]) {
         space.disableCollision(cp.first, cp.second) ;
     }
 
-    CollisionShapePtr box(new BoxCollisionShape{{0.15, 0.15, 0.15}}) ;
+    CollisionShapePtr box(new BoxCollisionShape{{0.005, 0.005, 0.05}}) ;
 
-    space.addCollisionObject("box1", box, Isometry3f(Translation3f{{0, 0, 0.2}})) ;
-    space.addCollisionObject("box2", box, Isometry3f(Translation3f{{0, 0, 0.6}})) ;
+    space.addCollisionObject("box1", box, Isometry3f(Translation3f{{0.25, 0.15, 0.38}})) ;
+    space.addCollisionObject("box2", box, Isometry3f(Translation3f{{0, 0, 0.9}})) ;
 
     // load URDFs
     string path = "/home/malasiot/source/xsim/data/" ;
@@ -134,5 +137,9 @@ int main(int argc, char *argv[]) {
   //  robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.67}));
 
     space.addRobot(robot) ;
+    cout << space.hasCollision() << endl ;
+
+    space.updateObjectTransform("box1", Isometry3f(Translation3f{{0.25, 0.15, 0.35}}));
+
     cout << space.hasCollision() << endl ;
 }
