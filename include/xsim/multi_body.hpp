@@ -4,7 +4,7 @@
 
 #include <xsim/collision.hpp>
 #include <xsim/convert.hpp>
-#include <xviz/robot/urdf_robot.hpp>
+#include <xsim/urdf_robot.hpp>
 
 #include <bullet/BulletDynamics/Featherstone/btMultiBodyJointMotor.h>
 #include <bullet/BulletDynamics/Featherstone/btMultiBodyLinkCollider.h>
@@ -186,7 +186,7 @@ private:
 
     int getJointIndex(const std::string &name) const;
 
-    void setMimic(const xviz::URDFJoint &joint, Joint &j);
+    void setMimic(const URDFJoint &joint, Joint &j);
 
     void setUserIndex(uint idx) const ;
 

@@ -32,7 +32,7 @@ GUI::GUI(PhysicsWorld &physics, Robot &robot):
     pose.linear() = rot.matrix() ;
     pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
 
- //   robot_.openGripper() ;
+    robot_.openGripper() ;
 
     Vector3f ik_center(0, 0, 0.2) ;
 
@@ -54,11 +54,16 @@ GUI::GUI(PhysicsWorld &physics, Robot &robot):
             p.translation() = f.translation()  ;
             p.linear() = rot.matrix() ;
             robot_.getJointState(start_state_) ;
-            robot_.moveTo(p) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-            timer_.start() ;
+
+            //robot_.moveTo(p) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
+            if ( robot_.plan(p) ) {
+                robot_.executeTrajectory() ;
+                timer_.start() ;
+            }
+
 
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
-            cout << f.translation().adjoint() << endl ;
+  //          cout << f.translation().adjoint() << endl ;
         }
 
     });

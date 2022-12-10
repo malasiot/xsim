@@ -41,7 +41,7 @@ struct CollisionFilterCallback : public btOverlapFilterCallback
         CollisionObjectPrivate *k1 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy1->m_clientObject)->getUserPointer());
 
         if ( isActive(k0->name_) && isActive(k1->name_) && isActive(k0->name_, k1->name_) ) {
-   //        cout << k0->name_ << ' ' << k1->name_ << endl ;
+     //      cout << k0->name_ << ' ' << k1->name_ << endl ;
             return true ;
         }
 
@@ -121,11 +121,20 @@ void CollisionSpace::addCollisionObject(const std::string &name, const Collision
     objects_.emplace(name, data) ;
 }
 
-void CollisionSpace::addRobot(const xviz::URDFRobot &robot, float margin, bool disable_self_collisions)
+void CollisionSpace::addRobot(const URDFRobot &robot, float margin, bool disable_self_collisions)
 {
 
     map<string, Isometry3f> link_transforms ;
     robot.computeLinkTransforms(link_transforms) ;
+
+    if ( disable_self_collisions ) {
+        for( const auto &l1: robot.links_ ) {
+            for( const auto &l2: robot.links_ ) {
+                if ( l1.first != l2.first )
+                    disableCollision(l1.first, l2.first);
+            }
+        }
+    }
 
     vector<string> link_names ;
     for( const auto &bp: robot.links_ ) {
@@ -174,20 +183,7 @@ void CollisionSpace::addRobot(const xviz::URDFRobot &robot, float margin, bool d
      //   cout << link.name_ << ' ' << (it->second* col_origin).matrix() << endl ;
 
         addCollisionObject(link.name_, col_shape, it->second * col_origin);
-
     }
-
-    if ( disable_self_collisions ) {
-        for( const auto &l1: link_names ) {
-            for( const auto &l2: link_names ) {
-                if ( l1 != l2 )
-                    disableCollision(l1, l2);
-            }
-        }
-    }
-
-
-
 }
 
 CollisionShapePtr CollisionSpace::makeCollisionShape(const URDFGeometry *geom) {
@@ -209,6 +205,7 @@ CollisionShapePtr CollisionSpace::makeCollisionShape(const URDFGeometry *geom) {
 }
 
 bool CollisionSpace::hasCollision() {
+    broadphase_->calculateOverlappingPairs(dispatcher_.get());
     world_->performDiscreteCollisionDetection();
 
     int numManifolds = world_->getDispatcher()->getNumManifolds();
@@ -225,11 +222,14 @@ bool CollisionSpace::hasCollision() {
         const CollisionObjectPrivate *coB = static_cast<const CollisionObjectPrivate *>(obB->getUserPointer());
            assert(coB != nullptr) ;
 
-      //  cout << "collision: " << coA->name_ << ' ' << coB->name_ << endl ;
-
         int numContacts = contactManifold->getNumContacts();
 
-        if ( numContacts > 0 ) return true ;
+        if ( numContacts > 0 ) {
+            cout << "collision: " << coA->name_ << ' ' << coB->name_ << ' ' << numContacts << endl ;
+            return true ;
+        }
+
+
 
     }
     return false ;

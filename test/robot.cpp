@@ -1,5 +1,6 @@
 #include "robot.hpp"
 #include "ur5_ik_solver.hpp"
+#include <xsim/joint_state_planner.hpp>
 
 using namespace xsim ;
 using namespace Eigen ;
@@ -81,20 +82,39 @@ void Robot::closeGripper() {
 
 }
 
+bool Robot::plan(const Eigen::Isometry3f &target)
+{
+    JointSpacePlanner planner(iplan_.get()) ;
+    return planner.solve(target, traj_) ;
+}
+
+void Robot::executeTrajectory() {
+    moveTo(traj_.points().back()) ;
+}
+
+void Robot::moveTo(const JointState &target)
+{
+    target_state_ = target ;
+    for( const auto &jn: arm_joint_names ) {
+        Joint *ctrl = controller_->findJoint(jn) ;
+        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(target_state_[jn]));
+    }
+}
+
 void Robot::moveTo(const Eigen::Isometry3f &target) {
     JointState j ;
     if ( ik(target, j) ) {
-        target_state_ = j ;
-        for( const auto &jn: arm_joint_names ) {
-            Joint *ctrl = controller_->findJoint(jn) ;
-            ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(j[jn]));
-        }
+       moveTo(j) ;
     }
 }
 
 void Robot::setJointState(const std::string &name, float v)
 {
     controller_->setJointPosition(name, v) ;
+ }
+
+void Robot::setJointState(const JointState &state) {
+
 }
 
 void Robot::getJointState(std::map<std::string, float> &state) {
@@ -106,11 +126,15 @@ void Robot::getJointState(std::map<std::string, float> &state) {
 
 void Robot::stop()
 {
+    JointState state ;
     for( const auto &j: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(j) ;
         ctrl->setMotorControl(MotorControl(VELOCITY_CONTROL).setTargetVelocity(0.0).setMaxForce(1000));
+        state.emplace(j, ctrl->getPosition()) ;
         // body.setTargetPosition(arm_joint_names[i], j[i]) ;
     }
+
+    iplan_->setStartState(state) ;
 }
 
 const std::vector<string> &Robot::armJointNames() const

@@ -451,6 +451,7 @@ uint PhysicsWorld::addGhost(const GhostObjectPtr &ghost)
 {
      dynamics_world_->addCollisionObject(ghost->handle(), btBroadphaseProxy::SensorTrigger,btBroadphaseProxy::AllFilter & ~btBroadphaseProxy::SensorTrigger) ;
 
+     return 0 ;
 }
 
 void PhysicsWorld::addConstraint(const Constraint &c) {

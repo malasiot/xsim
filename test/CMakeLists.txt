@@ -2,8 +2,7 @@ include_directories(
     3rdparty/
     ${BULLET_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
-    ${OMPL_INCLUDE_DIRS}
-)
+ )
 
 add_executable(test_bullet test_bullet.cpp bullet_gui.cpp bullet_gui.hpp body.cpp body.hpp)
 target_link_libraries(test_bullet xsim ${BULLET_LIBRARIES})
@@ -36,7 +35,7 @@ add_executable(test_vehicle test_vehicle.cpp bullet_gui.cpp bullet_gui.hpp)
 set_target_properties(test_vehicle PROPERTIES AUTOMOC TRUE)
 target_link_libraries(test_vehicle xsim ${BULLET_LIBRARIES})
 
-find_package(OMPL REQUIRED)
+
 add_executable(test_manipulator
     test_manipulator.cpp
     mainwindow.hpp
@@ -45,6 +44,7 @@ add_executable(test_manipulator
     bullet_gui.hpp
     ur5_ik_solver.cpp
     ur5_ik_solver.hpp
+
     gui.cpp
     gui.hpp
     robot.cpp
@@ -57,8 +57,8 @@ add_executable(test_collisions test_collisions.cpp)
 target_link_libraries(test_collisions xsim ${BULLET_LIBRARIES})
 
 add_executable(test_planner test_planner.cpp
+    test_planner.cpp
     ur5_ik_solver.cpp
     ur5_ik_solver.hpp
-    ompl_planner.cpp
-    ompl_planner.hpp)
-target_link_libraries(test_planner xsim ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})
+   )
+target_link_libraries(test_planner xsim ${BULLET_LIBRARIES} )

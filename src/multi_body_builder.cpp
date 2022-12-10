@@ -7,11 +7,10 @@ using namespace std ;
 using namespace Eigen ;
 using namespace xviz ;
 
-namespace xviz {
-extern NodePtr createLinkGeometry(const URDFGeometry *urdf_geom, MaterialPtr mat, Vector3f &scale);
-}
 
 namespace xsim {
+
+extern NodePtr createLinkGeometry(const URDFGeometry *urdf_geom, MaterialPtr mat, Vector3f &scale);
 
 MBLink &MultiBodyBuilder::addLink(const std::string &name, float mass, CollisionShapePtr cshape, const Eigen::Isometry3f &origin)
 {

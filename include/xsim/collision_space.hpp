@@ -2,7 +2,7 @@
 #define COLLISION_SPACE_HPP
 
 #include <xsim/collision.hpp>
-#include <xviz/robot/urdf_robot.hpp>
+#include <xsim/urdf_robot.hpp>
 
 namespace xsim {
 class CollisionDispatcher ;
@@ -16,7 +16,7 @@ public:
     ~CollisionSpace() ;
 
     void addCollisionObject(const std::string &name, const CollisionShapePtr &shape, const Eigen::Isometry3f &wtr) ;
-    void addRobot(const xviz::URDFRobot &rb, float collision_margin = 0.01, bool disable_self_collisions = true);
+    void addRobot(const URDFRobot &rb, float collision_margin = 0.01, bool disable_self_collisions = true);
 
     bool hasCollision();
     void disableCollision(const std::string &l1, const std::string &l2) ;
@@ -31,7 +31,7 @@ private:
     std::unique_ptr<CollisionFilterCallback> cb_ ;
     std::map<std::string, std::shared_ptr<CollisionObjectPrivate>> objects_ ;
 
-    CollisionShapePtr makeCollisionShape(const xviz::URDFGeometry *geom);
+    CollisionShapePtr makeCollisionShape(const URDFGeometry *geom);
 };
 
 } // namespace xsim

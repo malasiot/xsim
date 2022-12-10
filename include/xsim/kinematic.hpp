@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include <xviz/robot/urdf_robot.hpp>
+#include <xsim/urdf_robot.hpp>
 
 namespace xsim {
 
@@ -81,7 +81,7 @@ protected:
 class KinematicModel {
 public :
 
-    KinematicModel(const xviz::URDFRobot &robot) {
+    KinematicModel(const URDFRobot &robot) {
         create(robot) ;
     }
 
@@ -110,7 +110,7 @@ private:
     std::map<std::string, KinematicJointPtr> joints_ ;
     KinematicLinkPtr root_ ;
 
-    void create(const xviz::URDFRobot &robot) ;
+    void create(const URDFRobot &robot) ;
     void updateWorldTransforms() ;
 
 };

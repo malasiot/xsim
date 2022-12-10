@@ -1,4 +1,4 @@
-#include "ompl_planner.hpp"
+#include <xsim/joint_state_planner.hpp>
 
 #include <ompl/base/spaces/RealVectorStateSpace.h>
 #include <ompl/geometric/PathGeometric.h>
@@ -26,29 +26,57 @@
 using namespace std ;
 using namespace Eigen ;
 
-static ompl::base::StateSpacePtr createOmplStateSpace(PlanningInterface *manip)
+namespace xsim {
+
+class OMPLValidityChecker: public ompl::base::StateValidityChecker {
+public:
+
+    OMPLValidityChecker(const ompl::base::SpaceInformationPtr &si,
+                        PlanningInterface *manip):
+        StateValidityChecker(si), manip_(manip),
+        ompl_state_space_(si->getStateSpace()){}
+
+    bool isValid(const ompl::base::State *state) const ;
+
+private:
+
+    const ompl::base::StateSpacePtr &ompl_state_space_ ;
+    PlanningInterface *manip_ ;
+};
+
+class OMPLIKRegion : public ompl::base::GoalStates {
+public:
+
+    OMPLIKRegion(const ompl::base::SpaceInformationPtr &space_information,
+                           const std::vector<Eigen::Isometry3f> &poses,
+                           PlanningInterface *manip) ;
+
+    virtual bool hasStates(void) const {
+        return num_states_ > 0 ;
+    }
+
+private:
+
+    PlanningInterface* manip_;
+    int num_states_ ;
+};
+
+ompl::base::StateSpacePtr JointSpacePlanner::createOmplStateSpace(PlanningInterface *manip)
 {
     using namespace ompl::base ;
 
     StateSpacePtr ompl_state_space;
 
     const vector<string> &chain= manip->getJointChain() ;
- //   const string &freeJoint = manip->getFreeJoint() ;
- //   KinematicModel *model = manip->getModel() ;
 
     int nDOFs = chain.size() ;
-
-  //  if ( !freeJoint.empty() ) nDOFs -- ;
 
     RealVectorBounds real_vector_bounds(0) ;
     RealVectorStateSpace *state_space = new RealVectorStateSpace(nDOFs) ;
 
     int dim = 0 ;
 
-    for(int i=0 ; i<chain.size() ; i++ )
-    {
-      //  if ( chain[i] == freeJoint ) continue ;
-
+    for(int i=0 ; i<chain.size() ; i++ ) {
         double lower, upper ;
         manip->getLimits(chain[i], lower, upper) ;
 
@@ -66,15 +94,14 @@ static ompl::base::StateSpacePtr createOmplStateSpace(PlanningInterface *manip)
     return ompl_state_space ;
 }
 
-void setOmplState(const ompl::base::StateSpacePtr &ompl_state_space,
+
+void JointSpacePlanner::setOmplState(const ompl::base::StateSpacePtr &ompl_state_space,
                   ompl::base::ScopedState<ompl::base::RealVectorStateSpace> &ompl_state,
-             const JointState &state)
-{
+             const JointState &state) {
     using namespace ompl::base ;
 
     RealVectorStateSpace *state_space =
             dynamic_cast<RealVectorStateSpace *>(ompl_state_space.get()) ;
-
 
     for( const auto &sp: state ) {
         const string &name = sp.first ;
@@ -89,10 +116,9 @@ void setOmplState(const ompl::base::StateSpacePtr &ompl_state_space,
 }
 
 
-void getOmplState(const ompl::base::StateSpacePtr &ompl_state_space,
+void JointSpacePlanner::getOmplState(const ompl::base::StateSpacePtr &ompl_state_space,
              const ompl::base::RealVectorStateSpace::StateType *ompl_state,
-             JointState &state)
-{
+             JointState &state) {
     using namespace ompl::base ;
 
     RealVectorStateSpace *state_space =
@@ -108,18 +134,16 @@ void getOmplState(const ompl::base::StateSpacePtr &ompl_state_space,
     }
 }
 
-void getOmplTrajectory(const ompl::geometric::PathGeometric &path,
+void JointSpacePlanner::getOmplTrajectory(const ompl::geometric::PathGeometric &path,
                        const ompl::base::StateSpacePtr &ompl_state_space,
-                       JointTrajectory &joint_trajectory)
-{
+                       JointTrajectory &joint_trajectory) {
     using namespace ompl::base ;
 
     unsigned int num_points = path.getStateCount();
 
     double t = 0.0, tstep = 1.0/(num_points - 1) ;
 
-    for(int i=0 ; i<num_points ; i++)
-    {
+    for(int i=0 ; i<num_points ; i++) {
         const RealVectorStateSpace::StateType *state =
                 path.getState(i)->as<RealVectorStateSpace::StateType>() ;
 
@@ -129,68 +153,22 @@ void getOmplTrajectory(const ompl::geometric::PathGeometric &path,
         joint_trajectory.addPoint(t, js) ;
 
         t += tstep ;
-
     }
-
-
-
 }
 
-class OmplValidityChecker: public ompl::base::StateValidityChecker
-{
-public:
-
-    OmplValidityChecker(const ompl::base::SpaceInformationPtr &si,
-                        PlanningInterface *manip): StateValidityChecker(si), manip_(manip),
-        ompl_state_space_(si->getStateSpace())
-    {
-
-    }
-
-    bool isValid(const ompl::base::State *state) const ;
-
-private:
-
-    const ompl::base::StateSpacePtr &ompl_state_space_ ;
-    PlanningInterface *manip_ ;
-};
-
-bool OmplValidityChecker::isValid(const ompl::base::State *state) const
-{
+bool OMPLValidityChecker::isValid(const ompl::base::State *state) const {
     using namespace ompl::base ;
 
     const RealVectorStateSpace::StateType *ompl_state =
             dynamic_cast<const RealVectorStateSpace::StateType *>(state) ;
 
     JointState js ;
-    getOmplState(ompl_state_space_, ompl_state, js) ;
-
+    JointSpacePlanner::getOmplState(ompl_state_space_, ompl_state, js) ;
 
     return manip_->isStateValid(js) ;
-
 }
 
-class OmplIKRegion : public ompl::base::GoalStates
-{
-public:
-
-    OmplIKRegion(const ompl::base::SpaceInformationPtr &space_information,
-                           const std::vector<Isometry3f> &poses,
-                           PlanningInterface *manip) ;
-
-    virtual bool hasStates(void) const {
-        return numStates > 0 ;
-    }
-
-
-private:
-
-    PlanningInterface* manip_;
-    int numStates ;
-};
-
-
-OmplIKRegion::OmplIKRegion(const ompl::base::SpaceInformationPtr &space_information,
+OMPLIKRegion::OMPLIKRegion(const ompl::base::SpaceInformationPtr &space_information,
                            const std::vector<Isometry3f> &poses,
                            PlanningInterface *manip):
     ompl::base::GoalStates(space_information), manip_(manip) {
@@ -199,9 +177,7 @@ OmplIKRegion::OmplIKRegion(const ompl::base::SpaceInformationPtr &space_informat
 
     const StateSpacePtr &ompl_state_space = space_information->getStateSpace() ;
 
- //   IKSolver *solver = manip->getIKSolver() ;
-
-    numStates = 0 ;
+    num_states_ = 0 ;
 
     for( int i=0 ; i<poses.size() ; i++ )
     {
@@ -214,19 +190,19 @@ OmplIKRegion::OmplIKRegion(const ompl::base::SpaceInformationPtr &space_informat
 
                 ScopedState<RealVectorStateSpace> ompl_state(ompl_state_space) ;
 
-                setOmplState(ompl_state_space, ompl_state, solutions[j]) ;
+                JointSpacePlanner::setOmplState(ompl_state_space, ompl_state, solutions[j]) ;
 
                 addState(ompl_state) ;
 
-                numStates ++ ;
+                num_states_ ++ ;
             }
         }
     }
-
 }
+
+
 bool JointSpacePlanner::solve(const std::vector<Isometry3f> &poses,
-                                 JointTrajectory &traj)
-{
+                                 JointTrajectory &traj) {
     using namespace ompl::base ;
 
     StateSpacePtr ompl_state_space = createOmplStateSpace(iplan_) ;
@@ -238,20 +214,19 @@ bool JointSpacePlanner::solve(const std::vector<Isometry3f> &poses,
 
     SpaceInformationPtr si = ompl_planner_setup->getSpaceInformation() ;
 
-    si->setStateValidityChecker(StateValidityCheckerPtr(new OmplValidityChecker(si, iplan_)));
+    si->setStateValidityChecker(StateValidityCheckerPtr(new OMPLValidityChecker(si, iplan_)));
 
     // use the current joint state of the manipulator as the start state
 
     ScopedState<RealVectorStateSpace> start_state(ompl_state_space) ;
 
-    JointState js = iplan_->getJointState() ;
+    JointState js = iplan_->getStartState() ;
     setOmplState(ompl_state_space, start_state, js) ;
 
     // set the goal region
     ompl::base::GoalPtr goal;
 
-
-    OmplIKRegion *region = new OmplIKRegion(si, poses, iplan_) ;
+    OMPLIKRegion *region = new OMPLIKRegion(si, poses, iplan_) ;
     goal.reset(region);
     if ( !region->hasStates() ) return false ;
 
@@ -324,6 +299,8 @@ bool JointSpacePlanner::solve(const std::vector<Isometry3f> &poses,
     }
 
     return false ;
+
+}
 
 }
 /////////////////////////////////////////////////////////////////////////////////

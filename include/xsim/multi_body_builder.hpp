@@ -3,7 +3,7 @@
 
 #include <Eigen/Geometry>
 #include <xsim/collision.hpp>
-#include <xviz/robot/urdf_robot.hpp>
+#include <xsim/urdf_robot.hpp>
 #include <xviz/scene/material.hpp>
 
 namespace xviz {
@@ -178,7 +178,7 @@ class MultiBodyBuilder {
 
     MultiBodyBuilder() = default ;
 
-    MultiBodyBuilder(const xviz::URDFRobot &r) {
+    MultiBodyBuilder(const URDFRobot &r) {
         loadURDF(r) ;
     }
 
@@ -210,7 +210,7 @@ class MultiBodyBuilder {
         return *this ;
     }
 
-    MultiBodyBuilder &loadURDF(const xviz::URDFRobot &rb);
+    MultiBodyBuilder &loadURDF(const URDFRobot &rb);
 
     MultiBodyBuilder &loadURDF(const std::string &name) ;
 
@@ -234,7 +234,7 @@ private:
 
     std::shared_ptr<MultiBodyStateObserver> ms_ ;
 
-    void setMimic(const xviz::URDFJoint &joint, MBJoint &j);
+    void setMimic(const URDFJoint &joint, MBJoint &j);
 };
 
 }

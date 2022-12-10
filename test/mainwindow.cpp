@@ -75,7 +75,9 @@ void MainWindow::updateControls(const std::map<std::string, float> &state)
             QSlider *slider = it->second ;
             SliderData &data = slider_to_data_[slider] ;
             int value = 100 * (v - data.lower_)/(data.upper_ - data.lower_) ;
+            slider->blockSignals(true) ;
             slider->setValue(value) ;
+            slider->blockSignals(false) ;
         }
     }
 

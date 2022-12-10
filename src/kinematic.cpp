@@ -2,7 +2,6 @@
 
 using namespace std ;
 using namespace Eigen ;
-using namespace xviz ;
 
 namespace xsim {
 
@@ -221,6 +220,7 @@ void KinematicModel::create(const URDFRobot &robot) {
 
         jp->origin_ = j.origin_ ;
         jp->name_ = j.name_ ;
+        jp->setPosition(j.position_) ;
 
         auto it = links_.find(j.parent_) ;
         if ( it == links_.end() ) continue ;
@@ -249,6 +249,9 @@ void KinematicModel::create(const URDFRobot &robot) {
             root_ = lp.second ;
     }
 
+    assert(root_) ;
+
+    root_->world_ = robot.global_ ;
     updateWorldTransforms();
 }
 

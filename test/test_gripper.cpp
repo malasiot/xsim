@@ -5,7 +5,7 @@
 #include <xviz/scene/material.hpp>
 #include <xviz/scene/geometry.hpp>
 #include <xviz/scene/node_helpers.hpp>
-#include <xviz/robot/robot_scene.hpp>
+#include <xsim/robot_scene.hpp>
 
 #include <iostream>
 #include <thread>
