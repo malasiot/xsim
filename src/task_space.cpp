@@ -93,22 +93,19 @@ static Matrix3f lookAt(const Vector3f& eye, const Vector3f &center, const Vector
     mat(0,0) = s.x();
     mat(0,1) = s.y();
     mat(0,2) = s.z();
-    mat(0,3) = -s.dot(eye);
     mat(1,0) = u.x();
     mat(1,1) = u.y();
     mat(1,2) = u.z();
-    mat(1,3) = -u.dot(eye);
     mat(2,0) = -f.x();
     mat(2,1) = -f.y();
     mat(2,2) = -f.z();
-    mat(2,3) = f.dot(eye);
 
     return mat;
 }
 
 
 MoveRelativeTaskSpace::MoveRelativeTaskSpace(const Isometry3f &pose, const Vector3f &dp, double pos_tol,
-                                   const Vector3f &rpy_minus, const Vector3f &rpy_plus) {
+                                   const Vector3f &rpy_tol) {
     c0_ = pose.translation() ;
     a0_ = pose.linear().eulerAngles(0, 1, 2);
 
@@ -116,27 +113,27 @@ MoveRelativeTaskSpace::MoveRelativeTaskSpace(const Isometry3f &pose, const Vecto
 
     // We define a coordinate system with the Z axis pointing towards the target point
 
-    Matrix3f r = lookAt(c1, c0_, Vector3f::UnitY()) ;
+    Matrix3f r = lookAt(c0_, c1, Vector3f::UnitY()) ;
 
     frame_ = r  ;
     iframe_ = r.inverse() ;
 
     // we use a cylinder parameterization of the position
 
-    lower_[0] = 0.0      ; upper_[0] = dp.norm() ; // cylinder length
+    lower_[0] = 0.0      ; upper_[0] = dp.norm() + pos_tol; // cylinder length
     lower_[1] = -M_PI    ; upper_[1] = M_PI ; // polar angle
     lower_[2] = 0.0      ; upper_[2] = pos_tol ; // radius
 
     const double tol = 0.001 ;
 
-    double roll_min = std::max(a0_.x() - fabs(rpy_minus.x()) - tol, -M_PI) ;
-    double roll_max = std::min(a0_.x() + fabs(rpy_plus.x()) + tol, M_PI) ;
+    double roll_min = a0_.x() - rpy_tol.x() ;
+    double roll_max = a0_.x() + rpy_tol.x() ;
 
-    double pitch_min = std::max(a0_.y() - fabs(rpy_minus.y()) - tol, -M_PI) ;
-    double pitch_max = std::min(a0_.y() + fabs(rpy_plus.y()) + tol, M_PI) ;
+    double pitch_min = a0_.y() - rpy_tol.y();
+    double pitch_max = a0_.y() + rpy_tol.y() ;
 
-    double yaw_min = std::max(a0_.z() - fabs(rpy_minus.z()) - tol, -M_PI) ;
-    double yaw_max = std::min(a0_.z() + fabs(rpy_plus.z()) + tol, M_PI) ;
+    double yaw_min = a0_.z() - rpy_tol.z() ;
+    double yaw_max = a0_.z() + rpy_tol.z() ;
 
     upper_[3] = roll_max     ; lower_[3] = roll_min ;
     upper_[4] = pitch_max    ; lower_[4] = pitch_min ;
@@ -165,9 +162,12 @@ void MoveRelativeTaskSpace::taskSpaceToPose(const std::vector<double> &state, Is
             * AngleAxisf(pitch, Vector3f::UnitY())
             * AngleAxisf(yaw, Vector3f::UnitZ());
 
+    pose.setIdentity() ;
     pose.linear() = q.toRotationMatrix() ;
     pose.translation() = pt;
 }
+
+extern double normalizeCircularAngle(double theta, double l, double u) ;
 
 void MoveRelativeTaskSpace::poseToTaskSpace(const Isometry3f &pose, std::vector<double> &state) const
 {
@@ -179,7 +179,7 @@ void MoveRelativeTaskSpace::poseToTaskSpace(const Isometry3f &pose, std::vector<
     Vector3f pt = iframe_ * ( c - c0_ )  ;
 
     double l = pt.z()  ;
-    double t = atan2(pt.y(), pt.x()) ;
+    double t = normalizeCircularAngle(atan2(pt.y(), pt.x()), -M_PI, M_PI) ;
     double r = sqrt(pt.x() * pt.x() + pt.y() * pt.y()) ;
 
     state.push_back(l) ;

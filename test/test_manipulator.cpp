@@ -42,14 +42,15 @@ class UR5Planning: public PlanningInterface {
 public:
     UR5Planning(const URDFRobot &robot, const URDFRobot &table): robot_(robot) {
 
+        collisions_.disableCollision("baseLink", "box1");
         collisions_.addRobot(robot) ;
         collisions_.addRobot(table) ;
 
 
         collisions_.hasCollision() ;
 
-        //       CollisionShapePtr box(new BoxCollisionShape{{0.05, 0.05, 0.05}}) ;
-        //       collisions_.addCollisionObject("box1", box, Isometry3f(Translation3f{{0.25, 0.15, 0.38}})) ;
+        CollisionShapePtr box(new BoxCollisionShape{{0.08, 0.08, 0.08}}) ;
+        collisions_.addCollisionObject("box1", box, Isometry3f(Translation3f{{0.35, 0.25, 0.7}})) ;
         //       collisions_.addCollisionObject("box2", box, Isometry3f(Translation3f{{0, 0, 0.9}})) ;
 
         for ( int i=0 ; i<6  ; i++) {
@@ -88,7 +89,10 @@ public:
     }
 
     Isometry3f getToolPose() override {
-        return {};
+        robot_.setJointState(start_state_) ;
+        auto pose = robot_.getLinkTransform("ee_link") ;
+        pose.translation() -= Vector3f{-0.1, -0.2, 0.65}; // transform to robot base coordinates
+        return pose ;
     }
 
     KinematicModel robot_ ;
@@ -119,11 +123,10 @@ void createScene(const std::string &path, const URDFRobot &robot, const URDFRobo
     // a cube to grasp
 
     cube_rb = physics.addRigidBody(RigidBodyBuilder()
-                                   .setMass(0.1)
                                    .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.08, 0.08, 0.08)))
                                    .makeVisualShape({1.0, 0.1, 0.6, 1})
                                    .setName("cube")
-                                   .setWorldTransform(Isometry3f(Translation3f{0.5, 0.25, 0.7})));
+                                   .setWorldTransform(Isometry3f(Translation3f{0.35, 0.25, 0.7})));
 }
 
 int main(int argc, char **argv)
@@ -152,7 +155,7 @@ int main(int argc, char **argv)
 
 
     QObject::connect(&window, &MainWindow::controlValueChanged, gui, &GUI::changeControlValue) ;
-    QObject::connect(gui, &GUI::robotStateChanged, &window, &MainWindow::updateControls);
+
 
     for( const auto &jname: rb.armJointNames() ) {
         const URDFJoint *j = robot.findJoint(jname) ;

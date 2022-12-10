@@ -109,7 +109,7 @@ public:
     double position_ ;
 };
 
-static double normalizeCircularAngle(double theta, double l, double u) {
+double normalizeCircularAngle(double theta, double l, double u) {
     if ( theta < l ) {
         double range = u - l;
 

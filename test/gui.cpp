@@ -1,6 +1,6 @@
 #include "gui.hpp"
 #include "robot.hpp"
-
+#include "mainwindow.hpp"
 #include <iostream>
 
 #include <QTimer>
@@ -14,8 +14,6 @@ using namespace Eigen ;
 GUI::GUI(PhysicsWorld &physics, Robot &robot):
     SimulationGui(physics), robot_(robot) {
 
-    timer_.setInterval(100) ;
-    connect(&timer_, &QTimer::timeout, this, &GUI::executionTimerTicked);
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
@@ -32,7 +30,7 @@ GUI::GUI(PhysicsWorld &physics, Robot &robot):
     pose.linear() = rot.matrix() ;
     pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
 
-    robot_.openGripper() ;
+ //   robot_.openGripper() ;
 
     Vector3f ik_center(0, 0, 0.2) ;
 
@@ -43,6 +41,11 @@ GUI::GUI(PhysicsWorld &physics, Robot &robot):
     MaterialPtr mat(material) ;
     target_->addDrawable(geom, mat) ;
     robot_node->addChild(target_) ;
+
+    texec_ = new TrajectoryExecutionManager(&robot_, this) ;
+    QObject::connect(texec_, &TrajectoryExecutionManager::robotStateChanged, this, &GUI::updateControls);
+    QObject::connect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative) ;
+
 
     gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
     gizmo_->gizmo()->show(true) ;
@@ -56,11 +59,10 @@ GUI::GUI(PhysicsWorld &physics, Robot &robot):
             robot_.getJointState(start_state_) ;
 
             //robot_.moveTo(p) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-            if ( robot_.plan(p) ) {
-                robot_.executeTrajectory() ;
-                timer_.start() ;
+            JointTrajectory traj ;
+            if ( robot_.plan(p, traj) ) {
+                texec_->execute(traj) ;
             }
-
 
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
   //          cout << f.translation().adjoint() << endl ;
@@ -83,9 +85,9 @@ void GUI::onUpdate(float delta) {
 
 void GUI::keyPressEvent(QKeyEvent *event) {
     if ( event->key() == Qt::Key_Q ) {
-        robot_.openGripper();
+ //       robot_.openGripper();
     } else if ( event->key() == Qt::Key_W ) {
-        robot_.closeGripper() ;
+//        robot_.closeGripper() ;
     } else if ( event->key() == Qt::Key_L )
         gizmo_->setLocalTransform(true) ;
     else if ( event->key() == Qt::Key_G )
@@ -135,12 +137,27 @@ void GUI::changeControlValue(const std::string &jname, float v) {
     robot_.setJointState(jname, v) ;
 }
 
-void GUI::executionTimerTicked()
+void GUI::updateControls(const JointState &state)
 {
-    map<string, float> state ;
-    robot_.getJointState(state) ;
+    MainWindow::instance()->updateControls(state);
+}
 
-    const auto &target = robot_.targetState() ;
+void GUI::moveRelative() {
+    JointTrajectory traj ;
+        if ( robot_.planRelative({0.2, 0, 0}, traj) ) {
+            texec_->execute(traj) ;
+
+            QObject::disconnect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative);
+        }
+
+}
+
+void TrajectoryExecutionManager::timerTicked()
+{
+    JointState state ;
+    robot_->getJointState(state) ;
+
+    const auto &target = traj_.points().back() ;
 
     bool changed = false ;
     for( const auto &sp: state ) {
@@ -152,11 +169,23 @@ void GUI::executionTimerTicked()
             break ;
         }
     }
+    emit robotStateChanged(state) ;
 
     if ( !changed ) {
         timer_.stop() ;
-        robot_.stop() ;
+        robot_->stop() ;
+        emit trajectoryExecuted();
     }
 
-    emit robotStateChanged(state) ;
+
+}
+
+void TrajectoryExecutionManager::execute(const xsim::JointTrajectory &traj)
+{
+    traj_ = traj ;
+    timer_.setInterval(100) ;
+    connect(&timer_, &QTimer::timeout, this, &TrajectoryExecutionManager::timerTicked);
+
+    timer_.start() ;
+    robot_->moveTo(traj_.points().back());
 }

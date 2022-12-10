@@ -52,46 +52,33 @@ private:
     Eigen::Isometry3f pose_ ;
 };
 
-// This is the base class for goal regions that constrain the position of the end-effector inside an oriented shape
+// This is the base class for goal regions that constrain the position of the end-effector inside a shape
 // The orientation region is a box in roll-yaw-pitch space
 
 class SimpleShapeRegion: public GoalRegion {
 public:
 
-    SimpleShapeRegion() ;
+    SimpleShapeRegion(const Eigen::Vector3f &rpy_tol): rpy_tol_(rpy_tol) {}
 
-    void sample(std::vector<double> &xyz_rpy) const override;
+  protected:
 
-    double roll_min_, roll_max_, yaw_min_, yaw_max_ ;
-    double pitch_min_, pitch_max_ ;
-protected:
+    void computeOrientationBounds(const Eigen::Vector3f &rpy) ;
+    Eigen::Vector3f sampleOrientation() const;
 
-    void setShapePose(const Eigen::Vector3f &orig, const Eigen::Vector3f &rpy) ;
-
-    void computeOrientationBounds() ;
-
-    virtual void computePositionBounds() = 0;
-    virtual void samplePosition(double &X, double &Y, double &Z) = 0;
-
-    void computeBounds() ;
-
-    std::vector<double> lower_bounds_, upper_bounds_ ;
-    Eigen::Isometry3f t_ ;
+    double lower_bounds_[6], upper_bounds_[6] ;
+    Eigen::Vector3f rpy_tol_ ;
 };
 
 class BoxShapedRegion: public SimpleShapeRegion {
 
 public:
-    BoxShapedRegion(const Eigen::Vector3f &c, const Eigen::Vector3f &sz, const Eigen::Vector3f &rpy) ;
+    BoxShapedRegion(const Eigen::Vector3f &c, const Eigen::Vector3f &hsz,
+                    const Eigen::Vector3f &rpy,
+                    const Eigen::Vector3f &rpy_tol) ;
 
+    void sample(std::vector<double> &xyz_rpy) const override;
 protected:
-
-    virtual void computePositionBounds() ;
-    virtual void samplePosition(double &X, double &Y, double &Z) ;
-
-private:
-
-    Eigen::Vector3f orig_, rpy_, sz_ ;
+    Eigen::Vector3f orig_, rpy_, hsz_ ;
 };
 
 class CylinderShapedRegion: public SimpleShapeRegion {

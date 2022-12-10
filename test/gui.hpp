@@ -6,10 +6,34 @@
 
 #include <xsim/world.hpp>
 #include <xsim/collision.hpp>
+#include <xsim/ompl_planner.hpp>
 #include <xviz/scene/node.hpp>
 #include <xviz/gui/manipulator.hpp>
 
 #include <QTimer>
+
+class TrajectoryExecutionManager: public QObject {
+    Q_OBJECT
+public:
+    TrajectoryExecutionManager(Robot *robot,  QObject *parent = nullptr): QObject(parent), robot_(robot) {}
+
+    void execute(const xsim::JointTrajectory &traj) ;
+
+
+
+public slots:
+
+    void timerTicked();
+
+signals:
+    void trajectoryExecuted() ;
+    void robotStateChanged(const xsim::JointState &state) ;
+private:
+
+    xsim::JointTrajectory traj_ ;
+    Robot *robot_ ;
+    QTimer timer_ ;
+};
 
 class GUI: public SimulationGui, xsim::CollisionFeedback {
     Q_OBJECT
@@ -37,17 +61,14 @@ private:
     xviz::NodePtr target_ ;
     Robot &robot_ ;
     QTimer timer_ ;
-    std::map<std::string, float> start_state_ ;
+    JointState start_state_ ;
+    TrajectoryExecutionManager *texec_ ;
 
-Q_SIGNALS:
-    void robotStateChanged(const std::map<std::string, float> &) ;
 
 public slots:
     void changeControlValue(const std::string &jname, float v);
-
-    void executionTimerTicked() ;
-
-
+    void updateControls(const xsim::JointState &state) ;
+    void moveRelative();
 };
 
 

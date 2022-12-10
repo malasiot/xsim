@@ -6,6 +6,8 @@
 #include <QSlider>
 #include <QDebug>
 
+MainWindow *MainWindow::instance_ = nullptr ;
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow{parent}
 {
@@ -19,6 +21,9 @@ MainWindow::MainWindow(QWidget *parent)
     control_layout_->setContentsMargins(0,0,0,0);
     controls_->setLayout(control_layout_) ;
 
+    instance_ = this ;
+
+
 }
 
 MainWindow::~MainWindow()
@@ -30,6 +35,7 @@ void MainWindow::setGui(QWidget *gui)
 {
     gui_ = gui ;
     splitter_->addWidget(gui) ;
+
 }
 
 void MainWindow::addSlider(const std::string &name, float lower, float upper) {
@@ -66,7 +72,7 @@ void MainWindow::endSliders() {
     control_layout_->addStretch();
 }
 
-void MainWindow::updateControls(const std::map<std::string, float> &state)
+void MainWindow::updateControls(const xsim::JointState &state)
 {
     for( const auto &sp: state ) {
         auto it = name_to_slider_.find(sp.first) ;

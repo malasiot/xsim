@@ -75,6 +75,29 @@ public:
     CollisionSpace collisions_ ;
 };
 
+bool move_arm_tip(PlanningInterface &iplan, const Vector3f &dp, JointTrajectory &traj)
+{
+
+    Isometry3f pose = iplan.getToolPose() ;
+
+    Vector3f c0 = pose.translation() ;
+    auto r0 = pose.linear() ;
+    Vector3f c1 = c0 + dp ;
+
+    Isometry3f target_pose ;
+    target_pose.linear() = r0 ;
+    target_pose.translation() = c1 ;
+
+    // setup the goal region
+
+    SimplePoseGoal goal(target_pose) ;
+    MoveRelativeTaskSpace ts(pose, dp, 0.02, { 0.01, 0.01, 0.001}) ;
+
+    TaskSpacePlanner planner(&iplan) ;
+    planner.solve(goal, ts, traj);
+
+}
+
 int main(int argc, char *argv[]) {
     string path = "/home/malasiot/source/xsim/data/" ;
     auto robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
@@ -100,32 +123,16 @@ int main(int argc, char *argv[]) {
 
     JointTrajectory traj ;
     planner.solve(poses, traj) ;
+
+    start_state = traj.points().back() ;
 }
 
     {
         iplan.setStartState(start_state) ;
-        TaskSpacePlanner planner(&iplan) ;
-
-        Quaternionf rot{0, -1, 0, 1};
-        rot.normalize() ;
-
-        Isometry3f pose ;
-        pose.setIdentity() ;
-        pose.linear() = rot.matrix() ;
-        pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
-
-
-        SimplePoseGoal goal(pose) ;
-        RPY_XYZ_TaskSpace ts ;
-
         JointTrajectory traj ;
-        planner.solve(goal, ts, traj);
-        using namespace std::chrono_literals;
-            std::cout << "Hello waiter\n" << std::flush;
-            auto start = std::chrono::high_resolution_clock::now();
-            std::this_thread::sleep_for(2000ms);
-
+        move_arm_tip(iplan, { 0.4, 0.0, 0.0}, traj) ;
+        cout << "ok" << endl ;
     }
 
-    cout << "ok" << endl ;
+
 }

@@ -60,7 +60,7 @@ class MoveRelativeTaskSpace: public TaskSpace {
     */
 
     MoveRelativeTaskSpace(const Eigen::Isometry3f &pose, const Eigen::Vector3f &dp, double pos_tol,
-                     const Eigen::Vector3f &rpy_minus, const Eigen::Vector3f &rpy_plus) ;
+                     const Eigen::Vector3f &rpy_tol) ;
 
     int getDimension() const override { return 6 ; }
 

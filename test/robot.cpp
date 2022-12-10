@@ -1,6 +1,7 @@
 #include "robot.hpp"
 #include "ur5_ik_solver.hpp"
 #include <xsim/joint_state_planner.hpp>
+#include <xsim/task_space_planner.hpp>
 
 using namespace xsim ;
 using namespace Eigen ;
@@ -82,10 +83,37 @@ void Robot::closeGripper() {
 
 }
 
-bool Robot::plan(const Eigen::Isometry3f &target)
+bool Robot::plan(const Eigen::Isometry3f &target, JointTrajectory &traj)
 {
     JointSpacePlanner planner(iplan_.get()) ;
-    return planner.solve(target, traj_) ;
+    return planner.solve(target, traj) ;
+}
+
+bool Robot::planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj) {
+
+    JointState start_state ;
+    getJointState(start_state) ;
+
+    iplan_->setStartState(start_state) ;
+    Isometry3f pose = iplan_->getToolPose() ;
+
+    Vector3f c0 = pose.translation() ;
+    auto r0 = pose.linear() ;
+    auto euler = r0.eulerAngles(0, 1, 2);
+    Vector3f c1 = c0 + dp ;
+
+    Isometry3f target_pose ;
+    target_pose.setIdentity() ;
+    target_pose.linear() = r0 ;
+    target_pose.translation() = c1 ;
+
+    // setup the goal region
+
+    BoxShapedRegion goal(c1, {0.01, 0.01, 0.01}, euler, {0.01, 0.01, 0.01}) ;
+    MoveRelativeTaskSpace ts(pose, dp, 0.01, { 0.01, 0.01, 0.01}) ;
+
+    TaskSpacePlanner planner(iplan_.get()) ;
+    return planner.solve(goal, ts, traj);
 }
 
 void Robot::executeTrajectory() {
@@ -117,9 +145,9 @@ void Robot::setJointState(const JointState &state) {
 
 }
 
-void Robot::getJointState(std::map<std::string, float> &state) {
+void Robot::getJointState(JointState &state) {
     for( const auto &jn: arm_joint_names ) {
-        float v = controller_->getJointPosition(jn) ;
+        double v = controller_->getJointPosition(jn) ;
         state.emplace(jn, v) ;
     }
 }

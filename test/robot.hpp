@@ -13,19 +13,22 @@ struct Robot {
 
     void openGripper() ;
     void closeGripper() ;
-    bool plan(const Eigen::Isometry3f &target) ;
+    bool plan(const Eigen::Isometry3f &target, xsim::JointTrajectory &traj) ;
     void executeTrajectory() ;
     void moveTo(const JointState &target) ;
     void moveTo(const Eigen::Isometry3f &target) ;
     void setJointState(const std::string &name, float v) ;
     void setJointState(const JointState &state) ;
     float getJointState(const std::string &name) ;
-    void getJointState(std::map<std::string, float> &state) ;
+    void getJointState(JointState &state) ;
     void stop() ;
 
     const std::vector<std::string> &armJointNames() const ;
     const std::map<std::string, double> &targetState() const { return target_state_ ; }
 
+
+public:
+    bool planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj);
 private:
 
     xsim::MultiBodyPtr controller_ ;
