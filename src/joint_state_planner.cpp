@@ -249,9 +249,13 @@ bool JointSpacePlanner::solve(const std::vector<Isometry3f> &poses,
     case LazyRRT:
         ompl_planner.reset(new ompl::geometric::LazyRRT(si)) ;
         break ;
-    case RRTConnect:
-        ompl_planner.reset(new ompl::geometric::RRTConnect(si)) ;
+    case RRTConnect:{
+        auto p = new ompl::geometric::RRTConnect(si) ;
+        p->setRange(0) ;
+        ompl_planner.reset(p) ;
         break ;
+    }
+
     case KPIECE:
         ompl_planner.reset(new ompl::geometric::KPIECE1(si)) ;
         break ;
@@ -290,7 +294,7 @@ bool JointSpacePlanner::solve(const std::vector<Isometry3f> &poses,
             ompl_planner_setup->getPathSimplifier() ;
 
         // simplify path
-        pathSimplifier->simplifyMax(path);
+      //  pathSimplifier->simplifyMax(path);
 
         getOmplTrajectory(path, ompl_state_space, traj) ;
 

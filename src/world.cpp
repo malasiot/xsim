@@ -153,6 +153,8 @@ struct MyOverlapFilterCallback2 : public btOverlapFilterCallback
 };
 
 
+const int maxProxies = 32766;
+
 void PhysicsWorld::createMultiBodyDynamicsWorld()
 {
     collision_config_.reset( new btDefaultCollisionConfiguration() ) ;
@@ -163,13 +165,15 @@ void PhysicsWorld::createMultiBodyDynamicsWorld()
 
     broadphase_.reset(new btDbvtBroadphase() ) ;
 
+
     auto cache = broadphase_->getOverlappingPairCache() ;
     cache->setOverlapFilterCallback(new MyOverlapFilterCallback2);
 
     solver_.reset(new btMultiBodyConstraintSolver()) ;
 
     dynamics_world_.reset( new btMultiBodyDynamicsWorld(dispatcher_.get(), broadphase_.get(), static_cast<btMultiBodyConstraintSolver *>(solver_.get()), collision_config_.get()));
-    dynamics_world_->getDispatchInfo().m_useContinuous = true;
+    dynamics_world_->getDispatchInfo().m_useContinuous = false;
+ //   dynamics_world_->getDispatchInfo().m_allowedCcdPenetration = 0.01;
     dynamics_world_->getSolverInfo().m_numIterations = 100;
 
     dynamics_world_->setGravity(btVector3(0, -10, 0));
@@ -180,7 +184,6 @@ void PhysicsWorld::createMultiBodyDynamicsWorld()
 }
 
 
-const int maxProxies = 32766;
 
 void PhysicsWorld::createSoftBodyDynamicsWorld()
 {
@@ -389,7 +392,8 @@ RigidBodyPtr PhysicsWorld::addRigidBody(const RigidBodyBuilder &rb) {
     bodies_.emplace_back(body) ;
     body->handle()->setUserIndex(idx) ;
     body->handle()->setUserPointer(reinterpret_cast<void *>(body.get())) ;
-    string bname = body->getName() ;
+
+     string bname = body->getName() ;
     if ( !bname.empty() )
         body_map_.emplace(bname, idx) ;
     return body ;

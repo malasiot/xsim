@@ -133,7 +133,6 @@ MultiBodyBuilder & MultiBodyBuilder::loadURDF(const URDFRobot &rb) {
 
         if ( shapes.empty() ) {
             col_shape.reset(new GroupCollisionShape) ;
-            col_shape->setMargin(0.001);
         }   else if ( shapes.size() == 1 ) {
             col_shape = shapes[0] ;
             col_origin = origins[0] ;
@@ -144,8 +143,8 @@ MultiBodyBuilder & MultiBodyBuilder::loadURDF(const URDFRobot &rb) {
                 gc->addChild(shapes[i], origins[i]) ;
             }
             col_shape.reset(gc) ;
-            col_shape->setMargin(0.001);
         }
+        col_shape->setMargin(collision_margin_);
 
         if ( link.inertial_ ) {
             mass = link.inertial_->mass_ ;

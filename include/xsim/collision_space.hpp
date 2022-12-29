@@ -23,6 +23,7 @@ public:
     void updateObjectTransform(const std::string &name, const Eigen::Isometry3f &tr) ;
 
     void updateObjectTransforms(const std::map<std::string, Eigen::Isometry3f> &trs);
+    void enableCollision(const std::string &l1, const std::string &l2);
 private:
     std::unique_ptr<btBroadphaseInterface> broadphase_ ;
     std::unique_ptr<btCollisionDispatcher> dispatcher_ ;

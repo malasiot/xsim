@@ -87,6 +87,31 @@ public:
         return *this ;
     }
 
+    RigidBodyBuilder &setLinearDamping(float f) {
+        linear_damping_ = f ;
+        return *this ;
+    }
+
+    RigidBodyBuilder &setAngularDamping(float f) {
+        angular_damping_ = f ;
+        return *this ;
+    }
+
+    RigidBodyBuilder &setRollingFriction(float f) {
+        rolling_friction_ = f ;
+        return *this ;
+    }
+
+    RigidBodyBuilder &setSpinningFriction(float f) {
+        spinning_friction_ = f ;
+        return *this ;
+    }
+
+    RigidBodyBuilder &setRestitution(float f) {
+        restitution_ = f ;
+        return *this ;
+    }
+
 private:
 
 
@@ -98,7 +123,9 @@ private:
     xviz::NodePtr visual_shape_ ;
     float mass_ = 0.0f ;
     std::optional<Eigen::Vector3f> local_inertia_ ;
-    std::optional<float> friction_ ;
+    std::optional<float> friction_, linear_damping_, angular_damping_,
+        rolling_friction_, spinning_friction_, restitution_ ;
+
     Eigen::Isometry3f world_transform_ = Eigen::Isometry3f::Identity();
 };
 
@@ -117,6 +144,10 @@ public :
     Eigen::Isometry3f getWorldTransform() const override ;
 
     void disableDeactivation();
+
+    void applyExternalForce(const Eigen::Vector3f &force, const Eigen::Vector3f &pos) ;
+    void applyExternalTorque(const Eigen::Vector3f &torque) ;
+    void applyCentralImpulse(const Eigen::Vector3f &imp) ;
 private:
 
     RigidBody(const RigidBodyBuilder &rb) ;

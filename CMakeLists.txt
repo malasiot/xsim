@@ -16,6 +16,7 @@ include_directories(src
 
 add_subdirectory(src)
 add_subdirectory(test)
+add_subdirectory(envs)
 
 include(${CMAKE_SOURCE_DIR}/CMake/Install.cmake)
 

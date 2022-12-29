@@ -262,25 +262,23 @@
     </actuator>
   </transmission>
   
-  <link name="base"/>
+<!--  <link name="base"/>
   <joint name="base_link-base_fixed_joint" type="fixed">
   
     <origin rpy="0 0 -3.14159265359" xyz="0 0 0"/>
     <parent link="base_link"/>
     <child link="base"/>
   </joint>
- 
+ -->
   <link name="tool">
    <visual>
           <geometry>
-          <box size="0.02 0.02 0.15"/>
-           <!-- <cylinder length="0.1" radius="0.03"/> -->
+            <cylinder length="0.1" radius="0.01"/>
           </geometry>
    </visual>
     <collision>
           <geometry>
-          	<box size="0.02 0.02 0.15"/>
-           <!-- <cylinder length="0.1" radius="0.03"/> -->
+            <cylinder length="0.1" radius="0.01"/>
           </geometry>
    </collision>
    </link>
@@ -291,14 +289,28 @@
   </joint>
 
 
-<!--
-  <link name="world"/>
-  <joint name="world_joint" type="fixed">
-    <parent link="world"/>
+
+  <link name="table">
+  <visual>
+  	<origin xyz="0 0, -0.005"/>
+  	<geometry>
+  	   <box size="0.7 2.0 0.01"/>
+  	</geometry>
+    </visual>
+  <collision>
+  	<origin xyz="0 0, -0.005"/>
+  	<geometry>
+  	   <box size="0.7 2.0 0.01"/>
+  	</geometry>
+  </collision>
+  
+  </link>
+  <joint name="table_joint" type="fixed">
+    <parent link="table"/>
     <child link="base_link"/>
     <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
   </joint>
--->
+
   
   <!-- Robotiq Coupler -->
   <!--  + Height added by the coupler: 8mm -->

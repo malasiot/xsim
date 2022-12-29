@@ -219,6 +219,10 @@ class MultiBodyBuilder {
         return *this ;
     }
 
+    MultiBodyBuilder &setMargin(float m) {
+        collision_margin_ = m ;
+        return *this ;
+    }
 
 private:
 
@@ -228,6 +232,7 @@ private:
     bool fixed_base_ = false ;
     Eigen::Isometry3f base_tr_ = Eigen::Isometry3f::Identity() ;
     std::optional<float> linear_damping_, angular_damping_ ;
+    float collision_margin_ = 0.001 ;
 
     std::vector<MBLink> links_ ;
     std::vector<MBJoint> joints_ ;

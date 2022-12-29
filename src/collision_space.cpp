@@ -41,7 +41,7 @@ struct CollisionFilterCallback : public btOverlapFilterCallback
         CollisionObjectPrivate *k1 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy1->m_clientObject)->getUserPointer());
 
         if ( isActive(k0->name_) && isActive(k1->name_) && isActive(k0->name_, k1->name_) ) {
-     //      cout << k0->name_ << ' ' << k1->name_ << endl ;
+ //          cout << k0->name_ << ' ' << k1->name_ << endl ;
             return true ;
         }
 
@@ -56,6 +56,11 @@ struct CollisionFilterCallback : public btOverlapFilterCallback
     void excludeLinkPair(const string &link1, const std::string &link2) {
         expairs_.insert(make_pair(link1, link2)) ;
         expairs_.insert(make_pair(link2, link1)) ;
+    }
+
+    void includeLinkPair(const string &link1, const std::string &link2) {
+        expairs_.erase(make_pair(link1, link2)) ;
+        expairs_.erase(make_pair(link2, link1)) ;
     }
 
     bool isActive(const string &link) const { return exclusions_.count(link) == 0 ; }
@@ -116,7 +121,7 @@ void CollisionSpace::addCollisionObject(const std::string &name, const Collision
 
     collisionObj->setUserPointer(reinterpret_cast<void*>(data.get()));
 
-    world_->addCollisionObject(collisionObj, int(btBroadphaseProxy::StaticFilter), int(btBroadphaseProxy::KinematicFilter)) ;
+    world_->addCollisionObject(collisionObj) ;
 
     objects_.emplace(name, data) ;
 }
@@ -238,6 +243,10 @@ bool CollisionSpace::hasCollision() {
 
 void CollisionSpace::disableCollision(const std::string &l1, const std::string &l2) {
     cb_->excludeLinkPair(l1, l2) ;
+}
+
+void CollisionSpace::enableCollision(const std::string &l1, const std::string &l2) {
+    cb_->includeLinkPair(l1, l2) ;
 }
 
 void CollisionSpace::updateObjectTransform(const std::string &name, const Eigen::Isometry3f &tr) {

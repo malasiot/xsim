@@ -85,7 +85,7 @@ void Robot::closeGripper() {
 
 bool Robot::plan(const Eigen::Isometry3f &target, JointTrajectory &traj)
 {
-    JointSpacePlanner planner(iplan_.get()) ;
+    JointSpacePlanner planner(iplan_) ;
     return planner.solve(target, traj) ;
 }
 
@@ -109,30 +109,54 @@ bool Robot::planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj)
 
     // setup the goal region
 
-    BoxShapedRegion goal(c1, {0.01, 0.01, 0.01}, euler, {0.05, 0.05, 0.05}) ;
-    MoveRelativeTaskSpace ts(pose, dp, 0.001, { 0.05, 0.05, 0.05}) ;
+    BoxShapedRegion goal(c1, {0.02, 0.02, 0.02}, euler, {0.15, 0.15, 0.15}) ;
+    MoveRelativeTaskSpace ts(pose, dp, 0.02, { 0.1, 0.1, 0.1}) ;
 
-    TaskSpacePlanner planner(iplan_.get()) ;
+    TaskSpacePlanner planner(iplan_) ;
     return planner.solve(goal, ts, traj);
 }
 
-void Robot::executeTrajectory() {
-    moveTo(traj_.points().back()) ;
+void Robot::executeTrajectory(xsim::PhysicsWorld &world, const JointTrajectory &traj, float speed) {
+    for( int i=1 ; i<traj.points().size() ; i++ ) {
+        const auto &target = traj.points()[i] ;
+        moveTo(target, speed) ;
+        while (1) {
+            world.stepSimulation(0.005);
+            JointState state ;
+            getJointState(state) ;
+
+            bool changed = false ;
+            for( const auto &sp: state ) {
+                float start_v = target.find(sp.first)->second;
+                float v = state[sp.first] ;
+
+                if ( fabs(v - start_v) > 0.01 ) {
+                    changed = true ;
+                    break ;
+                }
+            }
+
+            if ( !changed ) {
+                stop() ;
+                break ;
+            }
+        }
+    }
 }
 
-void Robot::moveTo(const JointState &target)
+void Robot::moveTo(const JointState &target, float speed)
 {
     target_state_ = target ;
     for( const auto &jn: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(jn) ;
-        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(target_state_[jn]));
+        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(target_state_[jn]));
     }
 }
 
-void Robot::moveTo(const Eigen::Isometry3f &target) {
+void Robot::moveTo(const Eigen::Isometry3f &target, float speed) {
     JointState j ;
     if ( ik(target, j) ) {
-       moveTo(j) ;
+       moveTo(j, speed) ;
     }
 }
 

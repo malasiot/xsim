@@ -1,4 +1,5 @@
 #include <xsim/task_space.hpp>
+#include <iostream>
 
 using namespace std ;
 using namespace Eigen ;
@@ -104,6 +105,25 @@ static Matrix3f lookAt(const Vector3f& eye, const Vector3f &center, const Vector
 }
 
 
+Vector3f perpendicular(const Vector3f &a) {
+    float ax = fabs(a.x()), ay = fabs(a.y()), az = fabs(a.z()) ;
+    if ( ax < ay )
+        return ax < az ? Vector3f{0, -a.z(), a.y()} : Vector3f{-a.y(), a.x(), 0};
+    else
+        return ay < az ? Vector3f{a.z(), 0, -a.x()} : Vector3f{-a.y(), a.x(), 0};
+}
+
+Matrix3f basis(const Vector3f &a) {
+    Matrix3f r ;
+    Vector3f z = a.normalized() ;
+    Vector3f x = perpendicular(z) ;
+    Vector3f y = z.cross(x) ;
+    r.col(0) = x;
+    r.col(1) = y;
+    r.col(2) = z;
+    return r ;
+}
+
 MoveRelativeTaskSpace::MoveRelativeTaskSpace(const Isometry3f &pose, const Vector3f &dp, double pos_tol,
                                    const Vector3f &rpy_tol) {
     c0_ = pose.translation() ;
@@ -113,8 +133,12 @@ MoveRelativeTaskSpace::MoveRelativeTaskSpace(const Isometry3f &pose, const Vecto
 
     // We define a coordinate system with the Z axis pointing towards the target point
 
-    Matrix3f r = lookAt(c0_, c1, Vector3f::UnitY()) ;
-
+    Matrix3f r = basis(dp) ;
+  /*  if ( fabs(1 - dp.normalized().y() < 0.01 ))
+        r = lookAt(c0_, c1, Vector3f::UnitX()) ;
+    else
+        r = lookAt(c0_, c1, Vector3f::UnitY()) ;
+*/
     frame_ = r  ;
     iframe_ = r.inverse() ;
 

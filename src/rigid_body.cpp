@@ -50,6 +50,19 @@ void RigidBody::disableDeactivation() {
     handle_->setActivationState(DISABLE_DEACTIVATION);
 }
 
+void RigidBody::applyExternalForce(const Eigen::Vector3f &force, const Eigen::Vector3f &pos) {
+    handle_->applyForce(toBulletVector(force), toBulletVector(pos));
+}
+
+void RigidBody::applyExternalTorque(const Eigen::Vector3f &torque) {
+    handle_->applyTorque(toBulletVector(torque));
+}
+
+void RigidBody::applyCentralImpulse(const Eigen::Vector3f &imp)
+{
+    handle_->applyCentralImpulse(toBulletVector(imp));
+}
+
 RigidBody::RigidBody(const RigidBodyBuilder &rb)
 {
     assert((!rb.collision_shape_->handle() || rb.collision_shape_->handle()->getShapeType() != INVALID_SHAPE_PROXYTYPE));
@@ -68,10 +81,16 @@ RigidBody::RigidBody(const RigidBodyBuilder &rb)
 
     btRigidBody::btRigidBodyConstructionInfo cInfo(rb.mass_, motion_state_.get(), collision_shape_->handle(), inertia);
 
-    if ( rb.friction_ )
-        cInfo.m_friction = rb.friction_.value() ;
+    if ( rb.friction_ )         cInfo.m_friction = rb.friction_.value() ;
+    if ( rb.angular_damping_ )  cInfo.m_angularDamping = rb.angular_damping_.value() ;
+    if ( rb.linear_damping_ )   cInfo.m_linearDamping = rb.linear_damping_.value() ;
+    if ( rb.rolling_friction_ )   cInfo.m_rollingFriction = rb.rolling_friction_.value() ;
+    if ( rb.spinning_friction_ )  cInfo.m_spinningFriction = rb.spinning_friction_.value() ;
+    if ( rb.restitution_ )        cInfo.m_restitution = rb.restitution_.value() ;
 
     btRigidBody* body = new btRigidBody(cInfo);
+
+    body->activate(true) ;
 
     if ( rb.mass_ == 0.0f ) { // static object
         body->setWorldTransform(toBulletTransform(rb.world_transform_));

@@ -63,7 +63,7 @@ public:
         KPIECE, BKPIECE, LBKPIECE, SBL, pSBL, EST, RRT, RRTConnect, LazyRRT, pRRT, PRM, PRMStar
     } ;
 
-    OMPLPlannerBase(PlanningInterface *pi): iplan_(pi), alg_(RRTConnect), time_out_(5.0) {}
+    OMPLPlannerBase(PlanningInterface *pi): iplan_(pi), alg_(RRTConnect), time_out_(1.0) {}
 
     void setAlgorithm(Algorithm alg) { alg_ = alg ; }
     void setTimeOut(double time_out) { time_out_ = time_out ; }
