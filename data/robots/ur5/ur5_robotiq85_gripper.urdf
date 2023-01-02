@@ -283,6 +283,9 @@
            <!-- <cylinder length="0.1" radius="0.03"/> -->
           </geometry>
    </collision>
+   <contact>
+   		<restitution value="0.1"/>
+   </contact>
    </link>
   <joint name="wrist_3_link-tool_fixed_joint" type="fixed">
     <origin rpy="-1.57079632679 0 0" xyz="0 0.0823 0"/>

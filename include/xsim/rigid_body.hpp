@@ -144,10 +144,14 @@ public :
     Eigen::Isometry3f getWorldTransform() const override ;
 
     void disableDeactivation();
+    void setActive();
 
     void applyExternalForce(const Eigen::Vector3f &force, const Eigen::Vector3f &pos) ;
     void applyExternalTorque(const Eigen::Vector3f &torque) ;
     void applyCentralImpulse(const Eigen::Vector3f &imp) ;
+
+    void setContactProcessingThreshold(float t);
+    void setCCDSweptSphereRadius(float r);
 private:
 
     RigidBody(const RigidBodyBuilder &rb) ;

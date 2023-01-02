@@ -47,7 +47,20 @@ Eigen::Isometry3f RigidBody::getWorldTransform() const {
 }
 
 void RigidBody::disableDeactivation() {
-    handle_->setActivationState(DISABLE_DEACTIVATION);
+    handle_->forceActivationState(DISABLE_DEACTIVATION);
+}
+
+void RigidBody::setActive() {
+    handle_->forceActivationState(ACTIVE_TAG);
+}
+
+void RigidBody::setContactProcessingThreshold(float t) {
+    handle_->setContactProcessingThreshold(t);
+}
+
+void RigidBody::setCCDSweptSphereRadius(float r) {
+    handle_->setCcdSweptSphereRadius(r);
+    handle_->setCcdMotionThreshold(r / 2.);
 }
 
 void RigidBody::applyExternalForce(const Eigen::Vector3f &force, const Eigen::Vector3f &pos) {

@@ -9,6 +9,10 @@ struct Pt {
     Vector2f c_, n_ ;
 };
 
+Environment::Environment(World *world): world_(world) {
+    for( int i=0 ; i<10 ; i++ ) world->stepSimulation(0.05); // step simulation until boxes settle on table
+}
+
 bool Environment::apply(const State &state, const PushAction &action) {
 
 
@@ -30,7 +34,9 @@ bool Environment::apply(const State &state, const PushAction &action) {
         return false ;
     }
 
-    world_->controller_->executeTrajectory(*world_, traj, 5.0) ;
+//    world_->controller_->executeTrajectory(*world_, traj, 5.0) ;
+
+    world_->controller_->setJointState(traj.points().back()) ;
 
     world_->disableToolCollisions(action.box_id_) ;
 
@@ -39,20 +45,23 @@ bool Environment::apply(const State &state, const PushAction &action) {
         return false ;
     }
 
- //   world_->controller_->executeTrajectory(*world_, push, 0.05) ;
-
+    world_->controller_->executeTrajectory(*world_, push, 0.01) ;
+#if 0
     auto box_it = std::find_if(world_->boxes_.begin(), world_->boxes_.end(), [&](const RigidBodyPtr &b) { return b->getName() == action.box_id_ ;});
 
     auto box = *box_it ;
 
     Vector3f center = box->getWorldTransform().translation() ;
-    box->applyExternalForce((p2-p1).normalized(), center-pc) ;
 
-    for( int i=0 ; i<10 ; i++ ) {
-        world_->stepSimulation(0.05);
+    const float force = 5;
+
+    cout << (p1-p2).normalized().adjoint() << ' ' << (pc-center).adjoint() << endl ;
+    for( int i=0 ; i<20 ; i++ ) {
+        box->applyExternalForce(force*(p2-p1).normalized(), pc - center) ;
+        world_->stepSimulation(0.005);
     }
-
-    box->applyExternalForce(Vector3f{0, 0, 0}, Vector3f{0, 0, 0});
+#endif
+   // box->applyExternalForce(Vector3f{0, 0, 0}, Vector3f{0, 0, 0});
 
     world_->enableToolCollisions(action.box_id_) ;
 
@@ -158,18 +167,18 @@ std::vector<string> Environment::getBoxNames() const {
 std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector2f &c, float theta, int action_id) {
     Vector3f hbox_size = world_->params_.box_sz_ ;
     float w = hbox_size.x(), h = hbox_size.y() ;
-    const vector<Pt> coords = { { { w, -2 * h /3.0 }, {1, 0} },
-                                       { { w, 0 }, {1, 0} },
-                                       { { w, 2 * h /3.0 }, {1, 0} },
-                                       { {-w, -2 * h /3.0 },{-1, 0} },
-                                       { {-w, 0 }, {-1, 0} },
-                                       { {-w, 2 * h/3.0 }, {-1, 0} },
-                                       { {-2 * w/3.0, h }, {0, 1} },
-                                       { {0, h}, {0, 1} },
-                                       { {2 * w/3.0, h}, {0, 1} },
-                                       { {-2 * w/3.0, -h }, {0, -1} },
-                                       { { 0, -h }, {0, -1} },
-                                       { {2 * w/3.0, -h}, {0, -1} }
+    const vector<Pt> coords = {        { { w, -2 * h /3.0 }, { 1, 0} },
+                                       { { w,  0          }, { 1, 0} },
+                                       { { w,  2 * h /3.0 }, { 1, 0} },
+                                       { {-w, -2 * h /3.0 }, {-1, 0} },
+                                       { {-w,  0          }, {-1, 0} },
+                                       { {-w,  2 * h/3.0  }, {-1, 0} },
+                                       { {-2 * w/3.0,   h }, { 0, 1} },
+                                       { { 0,           h }, { 0, 1} },
+                                       { { 2 * w/3.0,   h }, { 0, 1} },
+                                       { {-2 * w/3.0,  -h }, {0, -1} },
+                                       { { 0,          -h }, {0, -1} },
+                                       { { 2 * w/3.0,  -h }, {0, -1} }
                                      };
     float start_delta = world_->params_.motion_start_offset_ ;
     float motion_length = world_->params_.motion_push_offset_ ;

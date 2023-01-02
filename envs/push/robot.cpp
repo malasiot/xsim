@@ -149,7 +149,8 @@ void Robot::moveTo(const JointState &target, float speed)
     target_state_ = target ;
     for( const auto &jn: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(jn) ;
-        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(target_state_[jn]));
+      //  ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(target_state_[jn]));
+          ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxForce(5).setTargetPosition(target_state_[jn]));
     }
 }
 
@@ -166,7 +167,13 @@ void Robot::setJointState(const std::string &name, float v)
  }
 
 void Robot::setJointState(const JointState &state) {
+    for( const auto &jn: arm_joint_names ) {
+        auto it = state.find(jn) ;
+        if ( it != state.end() )
+            controller_->setJointPosition(jn, it->second);
+    }
 
+    iplan_->setStartState(state);
 }
 
 void Robot::getJointState(JointState &state) {

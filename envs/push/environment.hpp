@@ -18,7 +18,7 @@ struct State {
 
 class Environment {
 public:
-    Environment(World *world): world_(world) {}
+    Environment(World *world);
 
     bool apply(const State &state, const PushAction &action) ;
     State getState() const ;

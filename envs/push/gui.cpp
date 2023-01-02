@@ -66,25 +66,25 @@ GUI::GUI(World *physics):
                 texec_->execute(traj) ;
             }
 */
-
-        /*    JointTrajectory push ;
+/*
+            JointTrajectory push ;
             if ( robot_->planRelative({0, 0.1, 0}, push) ) {
                 robot_->moveTo(push.points().back(), 0.05);
                  //texec_->execute(push) ;
              }
-
 */
-            auto box_it = std::find_if(physics->boxes_.begin(), physics->boxes_.end(), [physics](const RigidBodyPtr &b) { return b->getName() == "box_0_0" ;});
+
+            auto box_it = std::find_if(physics->boxes_.begin(), physics->boxes_.end(),
+                                       [physics](const RigidBodyPtr &b) { return b->getName() == "box_0_0" ;});
 
             RigidBodyPtr box = *box_it ;
 
 
-            Vector3f center = box->getWorldTransform().translation() ;
-            Vector3f pc{-physics->params_.box_sz_.y(), 0, 0} ;
-            for( int i=0 ; i<20 ; i++ ) {
-               box->applyCentralImpulse(500*Vector3f(0, -1, 0));
-               box->applyExternalForce(5*Vector3f(1, 0, 0),  pc) ;
-                physics->stepSimulation(0.05);
+       //     Vector3f center = box->getWorldTransform().translation() ;
+            Vector3f pc{0, -physics->params_.box_sz_.y(), 0} ;
+            for( int i=0 ; i<50 ; i++ ) {
+                box->applyExternalForce(10*Vector3f(0, 1, 0),  pc) ;
+                physics->stepSimulation(0.005);
             }
 
         } else if ( e == TRANSFORM_MANIP_MOVING ) {

@@ -50,7 +50,7 @@ int main(int argc, char **argv)
     params.data_dir_ = path ;
 
     World *world = new World(params) ;
-#if 0
+#if 1
     Environment env(world) ;
 
     vector<string> boxes = env.getBoxNames() ;
@@ -61,9 +61,10 @@ int main(int argc, char **argv)
         a.box_id_ = rng.choice(boxes) ; ;
         a.loc_ = rng.uniform(0, 11) ;
         cv::Mat im = env.renderState(a, state) ;
-   //     cv::imwrite("/tmp/state.png", im) ;
+        cv::imwrite("/tmp/state.png", im) ;
         cv::imwrite(cvx::format("/tmp/state_{:03d}.png", i), im) ;
         if ( !env.apply(state, a) ) continue ;
+        break;
 
     }
 #endif

@@ -156,7 +156,7 @@ void World::createScene(const URDFRobot &robot) {
                              .setCollisionShape(table_cs)
                              .makeVisualShape({0.5, 0.5, 0.5, 1})
                              .setName("table")
-                             .setFriction(0.1)
+                             .setFriction(1.0)
                              .setWorldTransform(table_tr)
                              ) ;
 
@@ -187,12 +187,16 @@ void World::createScene(const URDFRobot &robot) {
             string name = cvx::format("box_{}_{}", i, j) ;
 
             auto box = addRigidBody(RigidBodyBuilder()
-                                    .setMass(1)
+                                    .setMass(0.5)
                                     .setCollisionShape(box_cs)
                                     .makeVisualShape({1.0, 0.1, 0.9, 1})
                                     .setName(name)
                                     .setFriction(0.5)
+                                    .setRestitution(0.01)
+                                    .setSpinningFriction(0.005)
                                     .setWorldTransform(box_tr));
+
+            box->disableDeactivation();
 
             boxes_.emplace_back(box) ;
 
