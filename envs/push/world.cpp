@@ -56,7 +56,10 @@ public:
 
     bool solveIK(const Eigen::Isometry3f &pose, std::vector<JointState> &solutions) const override {
         UR5IKSolver solver ;
-        return solver.solve(pose, solutions) ;
+        auto pose_ee = robot_.getLinkTransform("ee_link") ;
+        auto pose_tool = robot_.getLinkTransform("ee_tool") ;
+        auto tr = pose_ee.inverse() * pose_tool * pose ;
+        return solver.solve(tr, solutions) ;
     }
 
     bool solveIK(const Eigen::Isometry3f &pose, const JointState &seed, JointState &solution) const override {

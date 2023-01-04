@@ -18,24 +18,26 @@ GUI::GUI(World *physics):
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
     auto world = physics->getVisual() ;
-    auto robot_node = world->findNodeByName("base_link") ;
+    auto robot_node = world->findNodeByName("ee_link") ;
 
     //    physics.setCollisionFeedback(this);
 
     Quaternionf rot{0, -1, 0, 1};
     rot.normalize() ;
 
+    Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
+
     Isometry3f pose ;
     pose.setIdentity() ;
     pose.linear() = rot.matrix() ;
-    pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
+    pose.translation() = Vector3f{ 0.25, 0.25, -0.075} ;
 
  //   robot_.openGripper() ;
 
     Vector3f ik_center(0, 0, 0.2) ;
 
     target_.reset(new Node) ;
-    target_->setTransform(Isometry3f(Translation3f(ik_center))) ;
+ //   target_->setTransform(Isometry3f(Translation3f(ik_center))) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
     PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
     MaterialPtr mat(material) ;
@@ -51,16 +53,17 @@ GUI::GUI(World *physics):
     gizmo_->gizmo()->show(true) ;
     gizmo_->gizmo()->setOrder(2) ;
 
-    gizmo_->setCallback([this, physics, rot](TransformManipulatorEvent e, const Affine3f &f) {
+    gizmo_->setCallback([this, physics, m](TransformManipulatorEvent e, const Affine3f &f) {
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
             cout << f.translation().adjoint() << endl ;
-          p.translation() = Vector3f(-0.2, 0.60, 0.15);
-            p.linear() = rot.matrix() ;
+          p.translation() = Vector3f(0.0, 0.60, 0.15);
+          p.linear() = m ;
+        //    p.linear() = rot.matrix() ;
             robot_->getJointState(start_state_) ;
 
-          //  robot_->moveTo(p) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
+          robot_->moveTo(p, 0.5) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
     /*        JointTrajectory traj ;
            if ( robot_->plan(p, traj) ) {
                 texec_->execute(traj) ;
@@ -73,7 +76,7 @@ GUI::GUI(World *physics):
                  //texec_->execute(push) ;
              }
 */
-
+#if 0
             auto box_it = std::find_if(physics->boxes_.begin(), physics->boxes_.end(),
                                        [physics](const RigidBodyPtr &b) { return b->getName() == "box_0_0" ;});
 
@@ -86,14 +89,14 @@ GUI::GUI(World *physics):
                 box->applyExternalForce(10*Vector3f(0, 1, 0),  pc) ;
                 physics->stepSimulation(0.005);
             }
-
+#endif
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
   //          cout << f.translation().adjoint() << endl ;
         }
 
     });
 
-    gizmo_->attachTo(target_.get());
+   gizmo_->attachTo(target_.get());
     gizmo_->setLocalTransform(false);
 
 

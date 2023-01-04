@@ -31,6 +31,7 @@ static const char *gripper_main_control_joint_name = "robotiq_85_left_knuckle_jo
 void ik(MultiBody &body, const Isometry3f &ee) {
 
 
+
     JointState seed, j ;
     for( uint i=0 ; i<6 ; i++ ) {
         double pos = body.getJointPosition(arm_joint_names[i]);
@@ -156,7 +157,19 @@ void Robot::moveTo(const JointState &target, float speed)
 
 void Robot::moveTo(const Eigen::Isometry3f &target, float speed) {
     JointState j ;
-    if ( ik(target, j) ) {
+
+    map<string, Isometry3f> trs ;
+    controller_->getLinkTransforms(trs);
+
+    auto pose_ee = trs["ee_link"] ;
+    auto pose_tool = trs["ee_tool"] ;
+
+    auto transform = pose_tool.inverse() * pose_ee ;
+    auto tr =  target * transform   ;
+
+
+
+    if ( ik(tr, j) ) {
        moveTo(j, speed) ;
     }
 }

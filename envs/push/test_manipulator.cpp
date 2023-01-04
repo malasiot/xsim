@@ -50,7 +50,7 @@ int main(int argc, char **argv)
     params.data_dir_ = path ;
 
     World *world = new World(params) ;
-#if 1
+#if 0
     Environment env(world) ;
 
     vector<string> boxes = env.getBoxNames() ;

@@ -288,9 +288,17 @@
    </contact>
    </link>
   <joint name="wrist_3_link-tool_fixed_joint" type="fixed">
-    <origin rpy="-1.57079632679 0 0" xyz="0 0.0823 0"/>
+    <origin rpy="-1.57079632679 0 0" xyz="0 0.15 0"/>
     <parent link="wrist_3_link"/>
     <child link="tool"/>
+  </joint>
+  
+  <link name="ee_tool"/>
+  
+  <joint name="tool_frame" type="fixed">
+  <parent link="tool"/>
+  <child link="ee_tool"/>
+  <origin xyz="0 0 0.075" />
   </joint>
 
 
