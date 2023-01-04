@@ -26,6 +26,11 @@ public:
             double val = robot_.getJointPosition(UR5IKSolver::ur5_joint_names[i]) ;
             start_state_.emplace(UR5IKSolver::ur5_joint_names[i], val) ;
         }
+
+        auto pose_ee = robot_.getLinkTransform("ee_link") ;
+        auto pose_tool = robot_.getLinkTransform("ee_tool") ;
+
+        tool_to_ee_ = pose_tool.inverse() * pose_ee ;
     }
 
 
@@ -56,20 +61,18 @@ public:
 
     bool solveIK(const Eigen::Isometry3f &pose, std::vector<JointState> &solutions) const override {
         UR5IKSolver solver ;
-        auto pose_ee = robot_.getLinkTransform("ee_link") ;
-        auto pose_tool = robot_.getLinkTransform("ee_tool") ;
-        auto tr = pose_ee.inverse() * pose_tool * pose ;
-        return solver.solve(tr, solutions) ;
+
+        return solver.solve(pose * tool_to_ee_, solutions) ;
     }
 
     bool solveIK(const Eigen::Isometry3f &pose, const JointState &seed, JointState &solution) const override {
         UR5IKSolver solver ;
-        return solver.solve(pose, seed, solution) ;
+        return solver.solve(pose * tool_to_ee_, seed, solution) ;
     }
 
     Isometry3f getToolPose() override {
         robot_.setJointState(start_state_) ;
-        auto pose = robot_.getLinkTransform("ee_link") ;
+        auto pose = robot_.getLinkTransform("ee_tool") ;
         //    pose.translation() -= Vector3f{-0.1, -0.2, 0.65}; // transform to robot base coordinates
         return pose ;
     }
@@ -78,6 +81,7 @@ public:
     CollisionSpace collisions_ ;
     std::vector<xsim::RigidBodyPtr> &boxes_ ;
     std::mutex mutex_ ;
+    Isometry3f tool_to_ee_ ;
 };
 
 
@@ -122,9 +126,12 @@ public:
 };
 
 void World::resetRobot() {
+    for ( int i=0 ; i<6  ; i++) {
+        robot_mb_->setJointPosition(UR5IKSolver::ur5_joint_names[i], 0);
+    }
+
     robot_mb_->setJointPosition("shoulder_lift_joint", -1.2);
     robot_mb_->setJointPosition("elbow_joint", 0.7);
-
 
     JointState state ;
     for ( int i=0 ; i<6  ; i++) {
@@ -159,7 +166,7 @@ void World::createScene(const URDFRobot &robot) {
                              .setCollisionShape(table_cs)
                              .makeVisualShape({0.5, 0.5, 0.5, 1})
                              .setName("table")
-                             .setFriction(1.0)
+                             .setFriction(3.0)
                              .setWorldTransform(table_tr)
                              ) ;
 
@@ -173,7 +180,7 @@ void World::createScene(const URDFRobot &robot) {
     box_cs->setMargin(0.02) ;
 
 
-    float gap = 0.001 ;
+    float gap = 0.0001 ;
 
     float pallet_width = params_.grid_x_ * ( 2 * params_.box_sz_.x() )  + (params_.grid_x_ - 1 ) * gap ;
     float pallet_height = params_.grid_y_ * ( 2 * params_.box_sz_.y() )  + (params_.grid_y_ - 1 ) * gap ;

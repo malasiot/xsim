@@ -12,11 +12,14 @@
 #include <xviz/gui/manipulator.hpp>
 
 #include <QTimer>
+#include <QThread>
 
 class TrajectoryExecutionManager: public QObject {
     Q_OBJECT
 public:
-    TrajectoryExecutionManager(Robot *robot,  QObject *parent = nullptr): QObject(parent), robot_(robot) {}
+    TrajectoryExecutionManager(World *world, Robot *robot,  QObject *parent = nullptr): QObject(parent), world_(world), robot_(robot) {
+
+    }
 
     void execute(const xsim::JointTrajectory &traj) ;
 
@@ -34,13 +37,40 @@ private:
     xsim::JointTrajectory traj_ ;
     int current_ ;
     Robot *robot_ ;
+    World *world_ ;
     QTimer timer_ ;
+};
+
+class ExecuteTrajectoryThread : public QThread
+{
+    Q_OBJECT
+public:
+    ExecuteTrajectoryThread(xsim::PhysicsWorld *world, Robot *robot, const xsim::JointTrajectory &traj, float speed):
+        world_(world), robot_(robot), traj_(traj), speed_(speed) {
+        robot->setUpdateCallback([this]() {
+            emit updateScene();
+        });
+    }
+
+    void run() override {
+        robot_->executeTrajectory(*world_, traj_, speed_);
+    }
+
+signals:
+    void updateScene();
+protected:
+    Robot *robot_ ;
+    xsim::PhysicsWorld *world_ ;
+    xsim::JointTrajectory traj_ ;
+    float speed_ ;
 };
 
 class GUI: public SimulationGui, xsim::CollisionFeedback {
     Q_OBJECT
 public:
     GUI(World *world);
+
+    void execute(const xsim::JointTrajectory &traj) ;
 
     void onUpdate(float delta) override;
 

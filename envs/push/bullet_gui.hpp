@@ -32,7 +32,7 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
 
     virtual void onUpdate(float delta) override {
-       physics_->stepSimulation(delta/1000.0f);
+      // physics_->stepSimulation(delta/1000.0f);
       //  physics_.stepSimulation(0.0001);
 
     }

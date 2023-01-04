@@ -139,7 +139,7 @@ void GUI::changeControlValue(const std::string &jname, float v) {
 
 void GUI::updateControls(const JointState &state)
 {
-    MainWindow::instance()->updateControls(state);
+   update() ;
 }
 
 void GUI::moveRelative() {
@@ -154,6 +154,7 @@ void GUI::moveRelative() {
 
 void TrajectoryExecutionManager::timerTicked()
 {
+
     JointState state ;
     robot_->getJointState(state) ;
 

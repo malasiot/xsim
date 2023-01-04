@@ -293,10 +293,12 @@ bool JointSpacePlanner::solve(const std::vector<Isometry3f> &poses,
         ompl::geometric::PathSimplifierPtr &pathSimplifier =
             ompl_planner_setup->getPathSimplifier() ;
 
+        ompl::geometric::PathGeometric orig(path) ;
         // simplify path
-      //  pathSimplifier->simplifyMax(path);
-
-        getOmplTrajectory(path, ompl_state_space, traj) ;
+        if ( pathSimplifier->simplifyMax(path) )
+            getOmplTrajectory(path, ompl_state_space, traj) ;
+        else
+            getOmplTrajectory(orig, ompl_state_space, traj) ;
 
         return true ;
 

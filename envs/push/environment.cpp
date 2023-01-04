@@ -23,8 +23,7 @@ bool Environment::apply(const State &state, const PushAction &action) {
     auto [p1, p2, pc] = computeMotion(Vector2f(bs.cx_, bs.cy_), -bs.theta_, action.loc_) ;
     cout << p1.adjoint() << ' ' <<p2.adjoint() << endl ;
 
-    Quaternionf rot{0, -1, 0, 1};
-    rot.normalize() ;
+    Matrix3f rot(AngleAxisf(M_PI, Vector3f::UnitY())) ;
     Isometry3f tr = Isometry3f::Identity() ;
     tr.translation() = p1  ;
     tr.linear() = rot.matrix() ;
@@ -182,7 +181,7 @@ std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector
                                      };
     float start_delta = world_->params_.motion_start_offset_ ;
     float motion_length = world_->params_.motion_push_offset_ ;
-    float height = 2 * hbox_size.z() + 0.025 ;
+    float height =  hbox_size.z() - 0.025 ;
   //  float height = hbox_size.z();
     const Pt &cc = coords[action_id] ;
     Rotation2Df r(theta) ;

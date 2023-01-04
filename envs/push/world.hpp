@@ -8,7 +8,7 @@ class UR5Planning ;
 class World: public xsim::PhysicsWorld {
 public:
     struct Parameters {
-        Eigen::Vector3f box_sz_ = { 0.05, 0.05, 0.075 } ;
+        Eigen::Vector3f box_sz_ = { 0.05, 0.05, 0.05 } ;
         int grid_x_ = 3, grid_y_ = 2 ;
         std::string data_dir_ ;
 
@@ -16,7 +16,7 @@ public:
         float table_offset_x_ = 0.0, table_offset_y_ = 0.65 ;
         float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.55 ;
         float motion_start_offset_ = 0.025 ;
-        float motion_push_offset_ = 0.025 ;
+        float motion_push_offset_ = 0.05 ;
     };
 
     World(const Parameters &params) ;

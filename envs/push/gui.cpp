@@ -15,10 +15,12 @@ using namespace Eigen ;
 GUI::GUI(World *physics):
     SimulationGui(physics), robot_(physics->controller_) {
 
+    physics->stepSimulation(0.005);
+
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
     auto world = physics->getVisual() ;
-    auto robot_node = world->findNodeByName("ee_link") ;
+    auto robot_node = world->findNodeByName("base_link") ;
 
     //    physics.setCollisionFeedback(this);
 
@@ -44,9 +46,9 @@ GUI::GUI(World *physics):
     target_->addDrawable(geom, mat) ;
     robot_node->addChild(target_) ;
 
-    texec_ = new TrajectoryExecutionManager(robot_.get(), this) ;
- //   QObject::connect(texec_, &TrajectoryExecutionManager::robotStateChanged, this, &GUI::updateControls);
-   // QObject::connect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative) ;
+    texec_ = new TrajectoryExecutionManager(physics, robot_.get(), this) ;
+    QObject::connect(texec_, &TrajectoryExecutionManager::robotStateChanged, this, &GUI::updateControls);
+    QObject::connect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative) ;
 
 
     gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
@@ -57,18 +59,18 @@ GUI::GUI(World *physics):
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
-            cout << f.translation().adjoint() << endl ;
-          p.translation() = Vector3f(0.0, 0.60, 0.15);
+
+     //     p.translation() = Vector3f(0, 0.70, 0.25);
           p.linear() = m ;
-        //    p.linear() = rot.matrix() ;
+
             robot_->getJointState(start_state_) ;
 
-          robot_->moveTo(p, 0.5) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-    /*        JointTrajectory traj ;
+    //      robot_->moveTo(p, 0.5) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
+          JointTrajectory traj ;
            if ( robot_->plan(p, traj) ) {
-                texec_->execute(traj) ;
+                execute(traj) ;
             }
-*/
+
 /*
             JointTrajectory push ;
             if ( robot_->planRelative({0, 0.1, 0}, push) ) {
@@ -101,6 +103,14 @@ GUI::GUI(World *physics):
 
 
 
+}
+
+void GUI::execute(const JointTrajectory &traj)
+{
+    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(physics_, robot_.get(), traj, 0.05) ;
+    connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
+    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, &QObject::deleteLater);
+    workerThread->start();
 }
 
 void GUI::onUpdate(float delta) {
@@ -173,7 +183,7 @@ void GUI::moveRelative() {
     JointTrajectory traj ;
    World *world = static_cast<World *>(physics_) ;
 
-        if ( robot_->planRelative({0, 0.2, 0}, traj) ) {
+        if ( robot_->planRelative({0.2, 0, 0}, traj) ) {
             texec_->execute(traj) ;
 
             QObject::disconnect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative);
@@ -183,8 +193,10 @@ void GUI::moveRelative() {
 
 void TrajectoryExecutionManager::timerTicked()
 {
+    world_->stepSimulation(0.005) ;
     JointState state ;
     robot_->getJointState(state) ;
+
 
     const auto &target = traj_.points()[current_] ;
 
@@ -208,7 +220,7 @@ void TrajectoryExecutionManager::timerTicked()
             current_ = 0 ;
             emit trajectoryExecuted();
         } else {
-            robot_->moveTo(traj_.points()[current_], 0.05) ;
+            robot_->moveTo(traj_.points()[current_], 0.5) ;
         }
 
     }
@@ -225,5 +237,6 @@ void TrajectoryExecutionManager::execute(const xsim::JointTrajectory &traj)
 
     timer_.start() ;
     current_ = 1 ;
-    robot_->moveTo(traj_.points()[current_], 0.05);
+    robot_->moveTo(traj_.points()[current_], 0.5);
+    emit robotStateChanged(traj_.points()[current_]);
 }

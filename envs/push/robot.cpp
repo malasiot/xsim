@@ -117,12 +117,16 @@ bool Robot::planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj)
     return planner.solve(goal, ts, traj);
 }
 
+UpdateCallback Robot::default_callback_ = []() {};
+
 void Robot::executeTrajectory(xsim::PhysicsWorld &world, const JointTrajectory &traj, float speed) {
     for( int i=1 ; i<traj.points().size() ; i++ ) {
         const auto &target = traj.points()[i] ;
         moveTo(target, speed) ;
         while (1) {
             world.stepSimulation(0.005);
+            if ( update_callback_ ) update_callback_() ;
+
             JointState state ;
             getJointState(state) ;
 
@@ -139,6 +143,7 @@ void Robot::executeTrajectory(xsim::PhysicsWorld &world, const JointTrajectory &
 
             if ( !changed ) {
                 stop() ;
+                if ( stopped_callback_ ) stopped_callback_() ;
                 break ;
             }
         }
@@ -150,8 +155,8 @@ void Robot::moveTo(const JointState &target, float speed)
     target_state_ = target ;
     for( const auto &jn: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(jn) ;
-      //  ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(target_state_[jn]));
-          ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxForce(5).setTargetPosition(target_state_[jn]));
+       ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(target_state_[jn]));
+      //    ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxForce(2).setTargetPosition(target_state_[jn]));
     }
 }
 
