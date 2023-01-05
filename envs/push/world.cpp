@@ -141,6 +141,14 @@ void World::resetRobot() {
     planner_->setStartState(state) ;
 }
 
+void World::reset() {
+    for( int i=0 ; i<boxes_.size() ; i++ ) {
+        boxes_[i]->setWorldTransform(orig_trs_[i]) ;
+    }
+
+    resetRobot() ;
+}
+
 void World::createScene(const URDFRobot &robot) {
     CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{params_.table_width_/2.0, params_.table_height_/2.0, 0.001})) ;
     table_cs->setMargin(0) ;
@@ -209,6 +217,8 @@ void World::createScene(const URDFRobot &robot) {
             box->disableDeactivation();
 
             boxes_.emplace_back(box) ;
+
+            orig_trs_.emplace_back(box_tr) ;
 
             planner_->collisions_.disableCollision("table", name);
             planner_->collisions_.addCollisionObject(name, box_cs, box_tr);
