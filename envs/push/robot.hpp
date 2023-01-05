@@ -8,13 +8,9 @@
 #include <xsim/ompl_planner.hpp>
 #include <xsim/world.hpp>
 
-using UpdateCallback = std::function<void ()> ;
-
 struct Robot {
 
     Robot(xsim::MultiBodyPtr c, xsim::PlanningInterface *p): controller_(c), iplan_(p) {}
-
-    static UpdateCallback default_callback_ ;
 
     void openGripper() ;
     void closeGripper() ;
@@ -28,13 +24,6 @@ struct Robot {
     void getJointState(JointState &state) ;
     void stop() ;
 
-    void setUpdateCallback(UpdateCallback cb) {
-        update_callback_ = cb ;
-    }
-
-    void setStoppedCallback(UpdateCallback cb) {
-        stopped_callback_ = cb ;
-    }
 
     const std::vector<std::string> &armJointNames() const ;
     const std::map<std::string, double> &targetState() const { return target_state_ ; }
@@ -49,8 +38,6 @@ private:
     xsim::PlanningInterface *iplan_ ;
     xsim::JointTrajectory traj_ ;
 
-    UpdateCallback update_callback_ = nullptr ;
-    UpdateCallback stopped_callback_ = nullptr ;
     bool ik(const Eigen::Isometry3f &target, JointState &);
 };
 

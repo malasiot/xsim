@@ -4,6 +4,7 @@
 #include "bullet_gui.hpp"
 #include "robot.hpp"
 #include "world.hpp"
+#include "environment.hpp"
 
 #include <xsim/world.hpp>
 #include <xsim/collision.hpp>
@@ -11,58 +12,46 @@
 #include <xviz/scene/node.hpp>
 #include <xviz/gui/manipulator.hpp>
 
+#include <cvx/math/rng.hpp>
+#include <cvx/misc/format.hpp>
+
 #include <QTimer>
 #include <QThread>
 
-class TrajectoryExecutionManager: public QObject {
+class ExecuteEnvironmentThread: public QThread {
+
     Q_OBJECT
 public:
-    TrajectoryExecutionManager(World *world, Robot *robot,  QObject *parent = nullptr): QObject(parent), world_(world), robot_(robot) {
-
-    }
-
-    void execute(const xsim::JointTrajectory &traj) ;
-
-
-
-public slots:
-
-    void timerTicked();
-
-signals:
-    void trajectoryExecuted() ;
-    void robotStateChanged(const xsim::JointState &state) ;
-private:
-
-    xsim::JointTrajectory traj_ ;
-    int current_ ;
-    Robot *robot_ ;
-    World *world_ ;
-    QTimer timer_ ;
-};
-
-class ExecuteTrajectoryThread : public QThread
-{
-    Q_OBJECT
-public:
-    ExecuteTrajectoryThread(xsim::PhysicsWorld *world, Robot *robot, const xsim::JointTrajectory &traj, float speed):
-        world_(world), robot_(robot), traj_(traj), speed_(speed) {
-        robot->setUpdateCallback([this]() {
+    ExecuteEnvironmentThread(World *world): env_(world), world_(world) {
+        world_->setUpdateCallback([this]() {
             emit updateScene();
         });
     }
 
     void run() override {
-        robot_->executeTrajectory(*world_, traj_, speed_);
+        std::vector<std::string> boxes = env_.getBoxNames() ;
+
+        for( int  i = 0 ; i<100 ; i++ ) {
+            State state = env_.getState() ;
+            PushAction a ;
+            a.box_id_ = rng_.choice(boxes) ; ;
+            a.loc_ = rng_.uniform(0, 11) ;
+            cv::Mat im = env_.renderState(a, state) ;
+            cv::imwrite("/tmp/state.png", im) ;
+            cv::imwrite(cvx::format("/tmp/state_{:03d}.png", i), im) ;
+            if ( !env_.apply(state, a) ) continue ;
+        }
     }
 
 signals:
     void updateScene();
 protected:
-    Robot *robot_ ;
-    xsim::PhysicsWorld *world_ ;
-    xsim::JointTrajectory traj_ ;
-    float speed_ ;
+
+    World *world_ ;
+    Environment env_ ;
+    cvx::RNG rng_ ;
+
+
 };
 
 class GUI: public SimulationGui, xsim::CollisionFeedback {
@@ -90,13 +79,9 @@ private:
     std::shared_ptr<Robot> robot_ ;
     QTimer timer_ ;
     JointState start_state_ ;
-    TrajectoryExecutionManager *texec_ ;
 
-
-public slots:
-    void changeControlValue(const std::string &jname, float v);
-    void updateControls(const xsim::JointState &state) ;
-    void moveRelative();
+protected:
+    void runenv();
 };
 
 

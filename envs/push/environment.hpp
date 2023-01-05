@@ -28,6 +28,8 @@ public:
 
 protected:
 
+    void runSim(float t) ;
+
     std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f> computeMotion(const Eigen::Vector2f &c, float theta, int action_id) ;
     World *world_ ;
 };

@@ -21,29 +21,11 @@ public:
         return instance_ ;
     }
 
-    void setGui(QWidget *gui) ;
-    void addSlider(const std::string &name, float lower, float upper) ;
-    void endSliders() ;
-public slots:
-    void updateControls(const xsim::JointState &) ;
-signals:
-    void controlValueChanged(const std::string &name, float v) ;
 
+    void setGui(QWidget *gui);
 private:
-    QSplitter *splitter_ ;
-    QWidget *controls_ ;
-    QWidget *gui_ ;
-
-    struct SliderData {
-        float lower_, upper_ ;
-        std::string name_ ;
-    };
 
     static MainWindow *instance_ ;
-
-    std::map<QSlider *, SliderData> slider_to_data_ ;
-    std::map<std::string, QSlider *> name_to_slider_ ;
-    QVBoxLayout *control_layout_ ;
 
 };
 

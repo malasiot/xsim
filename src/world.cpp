@@ -291,6 +291,8 @@ void PhysicsWorld::stepSimulation(float deltaTime) {
         for( auto sb: soft_bodies_ ) {
             sb->updateVisualGeometry();
         }
+
+        if ( update_cb_ ) update_cb_() ;
     }
 }
 
@@ -549,6 +551,10 @@ void PhysicsWorld::addSensor(SensorPtr sensor) {
     assert(dynamics_world_);
     sensors_.push_back(sensor) ;
     sensor->init(*this) ;
+}
+
+void PhysicsWorld::setUpdateCallback(PhysicsWorld::UpdateCallback cb) {
+    update_cb_ = cb ;
 }
 
 void PhysicsWorld::setCollisionFeedback(CollisionFeedback *feedback) {

@@ -364,7 +364,7 @@ bool TaskSpacePlanner::solve(const GoalRegion &goal, const TaskSpace &ts, JointT
             ompl_planner_setup->getPathSimplifier() ;
 
         // simplify path
-      //  pathSimplifier->simplifyMax(path);
+        pathSimplifier->simplifyMax(path);
 
         return getOmplTaskTrajectory(path, ompl_state_space, &ts, iplan_, traj) ;
     }

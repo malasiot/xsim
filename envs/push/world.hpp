@@ -15,7 +15,7 @@ public:
         float table_width_ = 1.0, table_height_ = 1.5 ;
         float table_offset_x_ = 0.0, table_offset_y_ = 0.65 ;
         float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.55 ;
-        float motion_start_offset_ = 0.025 ;
+        float motion_start_offset_ = 0.05 ;
         float motion_push_offset_ = 0.05 ;
     };
 

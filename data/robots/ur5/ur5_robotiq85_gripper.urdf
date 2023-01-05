@@ -274,13 +274,13 @@
    <visual>
           <geometry>
           <box size="0.02 0.02 0.15"/>
-           <!-- <cylinder length="0.1" radius="0.03"/> -->
+        <!--   <cylinder length="0.15" radius="0.02"/> -->
           </geometry>
    </visual>
     <collision>
           <geometry>
-          	<box size="0.02 0.02 0.15"/>
-           <!-- <cylinder length="0.1" radius="0.03"/> -->
+         <box size="0.02 0.02 0.15"/> 
+         <!--  <cylinder length="0.15" radius="0.02"/> -->
           </geometry>
    </collision>
    <contact>

@@ -10,7 +10,7 @@ struct Pt {
 };
 
 Environment::Environment(World *world): world_(world) {
-    for( int i=0 ; i<10 ; i++ ) world->stepSimulation(0.05); // step simulation until boxes settle on table
+    runSim(0.5) ;
 }
 
 bool Environment::apply(const State &state, const PushAction &action) {
@@ -45,26 +45,12 @@ bool Environment::apply(const State &state, const PushAction &action) {
     }
 
     world_->controller_->executeTrajectory(*world_, push, 0.01) ;
-#if 0
-    auto box_it = std::find_if(world_->boxes_.begin(), world_->boxes_.end(), [&](const RigidBodyPtr &b) { return b->getName() == action.box_id_ ;});
-
-    auto box = *box_it ;
-
-    Vector3f center = box->getWorldTransform().translation() ;
-
-    const float force = 5;
-
-    cout << (p1-p2).normalized().adjoint() << ' ' << (pc-center).adjoint() << endl ;
-    for( int i=0 ; i<20 ; i++ ) {
-        box->applyExternalForce(force*(p2-p1).normalized(), pc - center) ;
-        world_->stepSimulation(0.005);
-    }
-#endif
-   // box->applyExternalForce(Vector3f{0, 0, 0}, Vector3f{0, 0, 0});
 
     world_->enableToolCollisions(action.box_id_) ;
 
     world_->resetRobot() ;
+
+    runSim(0.5) ;
 
     return true ;
 }
@@ -163,6 +149,15 @@ std::vector<string> Environment::getBoxNames() const {
     return out ;
 }
 
+void Environment::runSim(float t) {
+    float tt = 0 ;
+    const float delta = 0.05 ;
+    while ( tt < t ) {
+        world_->stepSimulation(delta);
+        tt += delta ;
+    }
+}
+
 std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector2f &c, float theta, int action_id) {
     Vector3f hbox_size = world_->params_.box_sz_ ;
     float w = hbox_size.x(), h = hbox_size.y() ;
@@ -181,7 +176,7 @@ std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector
                                      };
     float start_delta = world_->params_.motion_start_offset_ ;
     float motion_length = world_->params_.motion_push_offset_ ;
-    float height =  hbox_size.z() - 0.025 ;
+    float height =  0.02 ;
   //  float height = hbox_size.z();
     const Pt &cc = coords[action_id] ;
     Rotation2Df r(theta) ;

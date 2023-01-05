@@ -46,11 +46,6 @@ GUI::GUI(World *physics):
     target_->addDrawable(geom, mat) ;
     robot_node->addChild(target_) ;
 
-    texec_ = new TrajectoryExecutionManager(physics, robot_.get(), this) ;
-    QObject::connect(texec_, &TrajectoryExecutionManager::robotStateChanged, this, &GUI::updateControls);
-    QObject::connect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative) ;
-
-
     gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
     gizmo_->gizmo()->show(true) ;
     gizmo_->gizmo()->setOrder(2) ;
@@ -59,39 +54,9 @@ GUI::GUI(World *physics):
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
-
-     //     p.translation() = Vector3f(0, 0.70, 0.25);
-          p.linear() = m ;
+            p.linear() = m ;
 
             robot_->getJointState(start_state_) ;
-
-    //      robot_->moveTo(p, 0.5) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-          JointTrajectory traj ;
-           if ( robot_->plan(p, traj) ) {
-                execute(traj) ;
-            }
-
-/*
-            JointTrajectory push ;
-            if ( robot_->planRelative({0, 0.1, 0}, push) ) {
-                robot_->moveTo(push.points().back(), 0.05);
-                 //texec_->execute(push) ;
-             }
-*/
-#if 0
-            auto box_it = std::find_if(physics->boxes_.begin(), physics->boxes_.end(),
-                                       [physics](const RigidBodyPtr &b) { return b->getName() == "box_0_0" ;});
-
-            RigidBodyPtr box = *box_it ;
-
-
-       //     Vector3f center = box->getWorldTransform().translation() ;
-            Vector3f pc{0, -physics->params_.box_sz_.y(), 0} ;
-            for( int i=0 ; i<50 ; i++ ) {
-                box->applyExternalForce(10*Vector3f(0, 1, 0),  pc) ;
-                physics->stepSimulation(0.005);
-            }
-#endif
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
   //          cout << f.translation().adjoint() << endl ;
         }
@@ -101,15 +66,13 @@ GUI::GUI(World *physics):
    gizmo_->attachTo(target_.get());
     gizmo_->setLocalTransform(false);
 
-
-
+    runenv() ;
 }
 
-void GUI::execute(const JointTrajectory &traj)
-{
-    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(physics_, robot_.get(), traj, 0.05) ;
-    connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
-    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, &QObject::deleteLater);
+void GUI::runenv() {
+    ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread((World *)physics_) ;
+    connect(workerThread, &ExecuteEnvironmentThread::updateScene, this, [this]() { update();});
+    connect(workerThread, &ExecuteEnvironmentThread::finished, workerThread, &QObject::deleteLater);
     workerThread->start();
 }
 
@@ -165,78 +128,4 @@ void GUI::processContact(ContactResult &r) {
     if ( r.a_ == nullptr || r.b_ == nullptr ) return ;
     if ( r.a_->getName() == "ground" || r.b_->getName() == "ground" ) return  ;
     cout << r.a_->getName() << ' ' << r.b_->getName() << endl ;
-}
-
-void GUI::changeControlValue(const std::string &jname, float v) {
-    cout << jname << ' ' << v << endl ;
-    //robot_mb->setJointPosition(jname, v) ;
-    robot_->setJointState(jname, v) ;
-}
-
-void GUI::updateControls(const JointState &state)
-{
-    MainWindow::instance()->updateControls(state);
-}
-
-void GUI::moveRelative() {
-
-    JointTrajectory traj ;
-   World *world = static_cast<World *>(physics_) ;
-
-        if ( robot_->planRelative({0.2, 0, 0}, traj) ) {
-            texec_->execute(traj) ;
-
-            QObject::disconnect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative);
-        }
-
-}
-
-void TrajectoryExecutionManager::timerTicked()
-{
-    world_->stepSimulation(0.005) ;
-    JointState state ;
-    robot_->getJointState(state) ;
-
-
-    const auto &target = traj_.points()[current_] ;
-
-    bool changed = false ;
-    for( const auto &sp: state ) {
-        float start_v = target.find(sp.first)->second;
-        float v = state[sp.first] ;
-
-        if ( fabs(v - start_v) > 0.01 ) {
-            changed = true ;
-            break ;
-        }
-    }
-    emit robotStateChanged(state) ;
-
-    if ( !changed ) {
-        current_ ++ ;
-        if ( current_ == traj_.points().size() ) {
-            timer_.stop() ;
-            robot_->stop() ;
-            current_ = 0 ;
-            emit trajectoryExecuted();
-        } else {
-            robot_->moveTo(traj_.points()[current_], 0.5) ;
-        }
-
-    }
-
-
-}
-
-void TrajectoryExecutionManager::execute(const xsim::JointTrajectory &traj)
-{
-    traj_ = traj ;
-    cout << traj.points().size() << endl ;
-    timer_.setInterval(100) ;
-    connect(&timer_, &QTimer::timeout, this, &TrajectoryExecutionManager::timerTicked);
-
-    timer_.start() ;
-    current_ = 1 ;
-    robot_->moveTo(traj_.points()[current_], 0.5);
-    emit robotStateChanged(traj_.points()[current_]);
 }

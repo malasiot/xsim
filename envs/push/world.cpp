@@ -197,7 +197,7 @@ void World::createScene(const URDFRobot &robot) {
             string name = cvx::format("box_{}_{}", i, j) ;
 
             auto box = addRigidBody(RigidBodyBuilder()
-                                    .setMass(0.5)
+                                    .setMass(1.5)
                                     .setCollisionShape(box_cs)
                                     .makeVisualShape({1.0, 0.1, 0.9, 1})
                                     .setName(name)

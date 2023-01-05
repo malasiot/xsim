@@ -51,38 +51,6 @@ void ik(MultiBody &body, const Isometry3f &ee) {
 
 
 
-void Robot::openGripper() {
-
-    Joint *ctrl = controller_->findJoint(gripper_main_control_joint_name) ;
-
-    MotorControl params(POSITION_CONTROL) ;
-    params.setMaxVelocity(1.5);
-    params.setMaxForce(0.1) ;
-    params.setTargetPosition(0.001) ;
-    ctrl->setMotorControl(params);
-
-    for( Joint *mimic: ctrl->getMimicJoints()) {
-        params.setTargetPosition(mimic->getMimicMultiplier() * 0.001) ;
-        mimic->setMotorControl(params);
-    }
-
-}
-
-void Robot::closeGripper() {
-    Joint *ctrl = controller_->findJoint(gripper_main_control_joint_name) ;
-
-    MotorControl params(POSITION_CONTROL) ;
-    params.setMaxVelocity(1.5);
-    params.setMaxForce(0.1) ;
-    params.setTargetPosition(0.8) ;
-    ctrl->setMotorControl(params);
-
-    for( Joint *mimic: ctrl->getMimicJoints()) {
-        params.setTargetPosition(mimic->getMimicMultiplier() * 0.8) ;
-        mimic->setMotorControl(params);
-    }
-
-}
 
 bool Robot::plan(const Eigen::Isometry3f &target, JointTrajectory &traj)
 {
@@ -110,14 +78,12 @@ bool Robot::planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj)
 
     // setup the goal region
 
-    BoxShapedRegion goal(c1, {0.02, 0.02, 0.02}, euler, {0.15, 0.15, 0.15}) ;
-    MoveRelativeTaskSpace ts(pose, dp, 0.02, { 0.1, 0.1, 0.1}) ;
+    BoxShapedRegion goal(c1, {0.01, 0.01, 0.01}, euler, {0.1, 0.1, 0.1}) ;
+    MoveRelativeTaskSpace ts(pose, dp, 0.01, { 0.1, 0.1, 0.1}) ;
 
     TaskSpacePlanner planner(iplan_) ;
     return planner.solve(goal, ts, traj);
 }
-
-UpdateCallback Robot::default_callback_ = []() {};
 
 void Robot::executeTrajectory(xsim::PhysicsWorld &world, const JointTrajectory &traj, float speed) {
     for( int i=1 ; i<traj.points().size() ; i++ ) {
@@ -125,7 +91,6 @@ void Robot::executeTrajectory(xsim::PhysicsWorld &world, const JointTrajectory &
         moveTo(target, speed) ;
         while (1) {
             world.stepSimulation(0.005);
-            if ( update_callback_ ) update_callback_() ;
 
             JointState state ;
             getJointState(state) ;
@@ -143,7 +108,6 @@ void Robot::executeTrajectory(xsim::PhysicsWorld &world, const JointTrajectory &
 
             if ( !changed ) {
                 stop() ;
-                if ( stopped_callback_ ) stopped_callback_() ;
                 break ;
             }
         }
@@ -155,7 +119,7 @@ void Robot::moveTo(const JointState &target, float speed)
     target_state_ = target ;
     for( const auto &jn: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(jn) ;
-       ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(target_state_[jn]));
+       ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setMaxForce(2).setTargetPosition(target_state_[jn]));
       //    ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxForce(2).setTargetPosition(target_state_[jn]));
     }
 }

@@ -32,6 +32,8 @@ public:
     PhysicsWorld() ;
     ~PhysicsWorld() ;
 
+    using UpdateCallback = std::function<void()> ;
+
     void createDefaultDynamicsWorld();
     void createMultiBodyDynamicsWorld();
     void createSoftBodyDynamicsWorld() ;
@@ -93,7 +95,7 @@ public:
 
     btSoftBodyWorldInfo &getSoftBodyWorldInfo() { return soft_body_world_info_ ; }
 
-
+    void setUpdateCallback(UpdateCallback cb) ;
 
 private:
 
@@ -125,6 +127,7 @@ private:
     CollisionFeedback *collision_feedback_ = nullptr ;
 
     btSoftBodyWorldInfo soft_body_world_info_ ;
+    UpdateCallback update_cb_ = nullptr ;
     float sim_time_ = 0.0f;
 
 
