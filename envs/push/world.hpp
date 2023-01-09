@@ -27,6 +27,7 @@ public:
     xsim::MultiBodyPtr robot_mb_ ;
     xsim::RigidBodyPtr table_rb_ ;
     std::vector<xsim::RigidBodyPtr> boxes_ ;
+    std::vector<Eigen::Isometry3f> orig_trs_ ;
 
 
     std::shared_ptr<Robot> controller_ ;
@@ -36,6 +37,7 @@ public:
     void disableToolCollisions(const std::string &box);
     void enableToolCollisions(const std::string &box);
     void resetRobot();
+    void reset() ;
 private:
     void createScene(const xsim::URDFRobot &robot);
 };

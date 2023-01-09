@@ -46,6 +46,10 @@ Eigen::Isometry3f RigidBody::getWorldTransform() const {
 
 }
 
+void RigidBody::setWorldTransform(const Eigen::Isometry3f &tr) {
+    handle_->setWorldTransform(toBulletTransform(tr));
+}
+
 void RigidBody::disableDeactivation() {
     handle_->forceActivationState(DISABLE_DEACTIVATION);
 }

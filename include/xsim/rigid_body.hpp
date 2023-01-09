@@ -142,6 +142,7 @@ public :
     }
 
     Eigen::Isometry3f getWorldTransform() const override ;
+    void setWorldTransform(const Eigen::Isometry3f &tr) ;
 
     void disableDeactivation();
     void setActive();

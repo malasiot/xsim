@@ -13,7 +13,23 @@ Environment::Environment(World *world): world_(world) {
     for( int i=0 ; i<10 ; i++ ) world->stepSimulation(0.05); // step simulation until boxes settle on table
 }
 
-bool Environment::apply(const State &state, const PushAction &action) {
+void Environment::reset() {
+    world_->reset() ;
+}
+
+std::vector<PushAction> Environment::getActions() const {
+    vector<PushAction> actions ;
+    for( const auto &b: getBoxNames() ) {
+        for( int i=0 ; i<12 ; i++ ) {
+            PushAction a ;
+            a.box_id_ = b ;
+            a.loc_ = i ;
+            actions.emplace_back(a) ;
+        }
+    }
+}
+
+float Environment::apply(const State &state, const PushAction &action) {
 
 
     auto it = state.boxes_.find(action.box_id_) ;

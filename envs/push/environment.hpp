@@ -12,15 +12,25 @@ struct BoxState {
     float cx_, cy_, theta_ ;
 };
 
+enum StateType {
+    STATE_VALID = 0, STATE_OUTSIDE_OF_WORKSPACE = 1, STATE_OBJECTS_TURNED = 2, STATE_TARGET_REACHED = 3, STATE_MAX_MOVES_REACHED = 4
+};
+
 struct State {
     std::map<std::string, BoxState> boxes_ ;
+    StateType type_ = STATE_VALID ;
 };
 
 class Environment {
 public:
     Environment(World *world);
 
-    bool apply(const State &state, const PushAction &action) ;
+    void reset() ;
+
+    std::vector<PushAction> getActions() const ;
+
+    float apply(const State &state, const PushAction &action) ;
+
     State getState() const ;
     cv::Mat renderState(const PushAction &a, const State &state) ;
 
