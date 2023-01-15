@@ -123,9 +123,8 @@ void Trainer::train(int64_t num_epochs){
 
          a = actions[action_index];
 
-         float reward = env_->apply(state, a) ;
+         auto [new_state, reward] = env_->transition(state, a) ;
          episode_reward += reward;
-         State new_state = env_->getState() ;
 
          torch::Tensor new_state_tensor = stateToTensor(new_state);
          bool done = ( new_state.type_ != StateType::STATE_VALID ) ;

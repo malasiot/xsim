@@ -95,7 +95,7 @@ bool Robot::planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj)
     getJointState(start_state) ;
 
     iplan_->setStartState(start_state) ;
-    Isometry3f pose = iplan_->getToolPose() ;
+    Isometry3f pose = iplan_->getToolPose(start_state) ;
 
     Vector3f c0 = pose.translation() ;
     auto r0 = pose.linear() ;

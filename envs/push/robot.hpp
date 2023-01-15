@@ -4,41 +4,38 @@
 #include <Eigen/Geometry>
 #include <map>
 #include <xsim/multi_body.hpp>
-#include "ur5_ik_solver.hpp"
+
 #include <xsim/ompl_planner.hpp>
 #include <xsim/world.hpp>
 
+// class to control robot movement and state
+
+using StartTrajectoryCallback = std::function<void(const xsim::JointTrajectory &)> ;
+
 struct Robot {
 
-    Robot(xsim::MultiBodyPtr c, xsim::PlanningInterface *p): controller_(c), iplan_(p) {}
+    Robot(xsim::PhysicsWorld *world, const xsim::MultiBodyPtr &c): world_(world), controller_(c) {}
 
-    void openGripper() ;
-    void closeGripper() ;
-    bool plan(const Eigen::Isometry3f &target, xsim::JointTrajectory &traj) ;
-    void executeTrajectory(xsim::PhysicsWorld &physics, const xsim::JointTrajectory &t, float speed) ;
-    void moveTo(const JointState &target, float speed) ;
-    void moveTo(const Eigen::Isometry3f &target, float speed) ;
+    void executeTrajectory(const xsim::JointTrajectory &t, float speed) ;
+
+    void move(const xsim::JointState &start_state, const xsim::JointState &end_state, float speed) ;
+    void moveTo(const xsim::JointState &target, float speed) ;
+
     void setJointState(const std::string &name, float v) ;
-    void setJointState(const JointState &state) ;
+    void setJointState(const xsim::JointState &state) ;
     float getJointState(const std::string &name) ;
-    void getJointState(JointState &state) ;
+    xsim::JointState getJointState() const ;
     void stop() ;
 
+    void setStartTrajectoryCallback(StartTrajectoryCallback cb) { stcb_ = cb ; }
 
     const std::vector<std::string> &armJointNames() const ;
-    const std::map<std::string, double> &targetState() const { return target_state_ ; }
 
-
-public:
-    bool planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj);
 private:
 
     xsim::MultiBodyPtr controller_ ;
-    JointState target_state_ ;
-    xsim::PlanningInterface *iplan_ ;
-    xsim::JointTrajectory traj_ ;
-
-    bool ik(const Eigen::Isometry3f &target, JointState &);
+    xsim::PhysicsWorld *world_ ;
+    StartTrajectoryCallback stcb_ = nullptr ;
 };
 
 #endif // ROBOT_HPP

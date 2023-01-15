@@ -15,8 +15,7 @@
 #include <xsim/world.hpp>
 
 #include <xsim/multi_body.hpp>
-#include <xsim/soft_body.hpp>
-#include <xsim/soft_body_shape.hpp>
+#include <xsim/robot_scene.hpp>
 
 #include <cvx/math/rng.hpp>
 #include <cvx/misc/format.hpp>
@@ -50,6 +49,8 @@ int main(int argc, char **argv)
     params.data_dir_ = path ;
 
     World *world = new World(params) ;
+
+ //   world->coverage_analysis() ;
 #if 0
     Environment env(world) ;
 
@@ -69,6 +70,7 @@ int main(int argc, char **argv)
     }
 #endif
     GUI *gui = new GUI(world) ;
+
 
     MainWindow window ;
     window.setGui(gui) ;

@@ -2,44 +2,56 @@
 #include "robot.hpp"
 #include "mainwindow.hpp"
 #include "world.hpp"
+#include "planning_interface.hpp"
+
 #include <iostream>
 
 #include <QTimer>
 #include <QDebug>
+
+#include <xviz/scene/node_helpers.hpp>
 
 using namespace std ;
 using namespace xviz ;
 using namespace xsim ;
 using namespace Eigen ;
 
-GUI::GUI(World *physics):
-    SimulationGui(physics), robot_(physics->controller_) {
+GUI::GUI(World *w):
+    SimulationGui(w), world_(w) {
 
-    physics->stepSimulation(0.005);
+    physics_->stepSimulation(0.005);
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
-    auto world = physics->getVisual() ;
+    auto world = physics_->getVisual() ;
     auto robot_node = world->findNodeByName("base_link") ;
 
-    //    physics.setCollisionFeedback(this);
+    traj_node_.reset(new Node) ;
+    for( int i=0 ;i<100 ; i++ ) {
+        traj_points_[i] =xviz::NodeHelpers::makeSphere(0.01, Vector4f(0, 0, 1, 1));
+        traj_node_->addChild(traj_points_[i]) ;
+    }
+#if 0
+    scene_->children()[0]->setVisible(false);
 
-    Quaternionf rot{0, -1, 0, 1};
-    rot.normalize() ;
+    auto cs = world_->collisionScene() ;
+    KinematicModel &fk = static_cast<UR5Planning *>(world_->iplan())->fk() ;
+
+    fk.setJointState(world_->controller()->getJointState()) ;
+    map<string , Isometry3f> trs = fk.getLinkTransforms();
+    cs->updateTransforms(trs);
+
+    cout << trs["upper_arm_link"].matrix() << endl ;
+
+    scene_->addChild(world_->collisionScene()) ;
+#endif
+    scene_->addChild(traj_node_) ;
+    traj_node_->setVisible(false) ;
+    //    physics.setCollisionFeedback(this);
 
     Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
 
-    Isometry3f pose ;
-    pose.setIdentity() ;
-    pose.linear() = rot.matrix() ;
-    pose.translation() = Vector3f{ 0.25, 0.25, -0.075} ;
-
- //   robot_.openGripper() ;
-
-    Vector3f ik_center(0, 0, 0.2) ;
-
     target_.reset(new Node) ;
- //   target_->setTransform(Isometry3f(Translation3f(ik_center))) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
     PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
     MaterialPtr mat(material) ;
@@ -50,13 +62,68 @@ GUI::GUI(World *physics):
     gizmo_->gizmo()->show(true) ;
     gizmo_->gizmo()->setOrder(2) ;
 
-    gizmo_->setCallback([this, physics, m](TransformManipulatorEvent e, const Affine3f &f) {
+    gizmo_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
             p.linear() = m ;
 
-            robot_->getJointState(start_state_) ;
+            cout << p.translation().adjoint() << endl ;
+            JointTrajectory traj ;
+            if ( world_->planner()->plan(world_->controller()->getJointState(), p, traj) ) {
+                trajectory(traj) ;
+            }
+#if 0
+            vector<JointState> solutions ;
+
+           if ( world_->iplan()->solveIK(p, solutions) ) {
+               for( const auto solution: solutions ) {
+                   if ( world_->iplan()->isStateValid(solution) ) {
+                        world_->controller()->setJointState(solution) ;
+                        world_->stepSimulation(0.05);
+                        break ;
+                   }
+               }
+           } else  return ;
+#endif
+return ;
+           if ( world_->planner()->planRelative(world_->controller()->getJointState(), Vector3f{0, 0.2, 0}, traj )) {
+               trajectory(traj) ;
+           }
+
+
+#if 0
+            Vector3f p1{ -0.1,   0.39,      0.02} ;
+            Vector3f p2{ -0.1,   0.475,      0.02};
+
+            p.translation() = p1 ;
+
+            JointState seed, solution ;
+            seed = world_->controller()->getJointState() ;
+           if ( world_->iplan()->solveIK(p, seed, solution) ) {
+                world_->controller()->setJointState(solution) ;
+                world_->stepSimulation(0.05);
+           }
+
+           auto start_state = world_->controller()->getJointState() ;
+
+            JointTrajectory traj ;
+
+            world_->disableToolCollisions("box_0_0");
+
+            if ( world_->planner()->planRelative(start_state, p2-p1, traj)) {
+                cout << traj << endl ;
+                trajectory(traj) ;
+            }
+           #endif
+/*
+            auto start_state = world_->controller()->getJointState() ;
+            if ( world_->planner()->plan(start_state, p, traj) ) {
+               trajectory(traj) ;
+            }
+*/
+  //        -0.133433   0.49995      0.02
+
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
   //          cout << f.translation().adjoint() << endl ;
         }
@@ -66,14 +133,42 @@ GUI::GUI(World *physics):
    gizmo_->attachTo(target_.get());
     gizmo_->setLocalTransform(false);
 
-    runenv() ;
+  //runenv() ;
+
+    qRegisterMetaType<JointTrajectory>("xsim::JointTrajectory");
 }
 
 void GUI::runenv() {
-    ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread((World *)physics_) ;
+    ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread(world_) ;
     connect(workerThread, &ExecuteEnvironmentThread::updateScene, this, [this]() { update();});
-    connect(workerThread, &ExecuteEnvironmentThread::finished, workerThread, &QObject::deleteLater);
+    connect(workerThread, SIGNAL(showTrajectory(xsim::JointTrajectory)), this, SLOT(showTrajectory(xsim::JointTrajectory)));
+    connect(workerThread, &ExecuteEnvironmentThread::finished, workerThread, [&](){ delete workerThread ;});
     workerThread->start();
+}
+
+void GUI::trajectory(const JointTrajectory &traj) {
+    showTrajectory(traj);
+    if ( traj_thread_ ) return ;
+
+    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(world_, traj) ;
+    connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
+    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){ delete traj_thread_ ; traj_thread_ = nullptr;});
+    workerThread->start();
+    traj_thread_ = workerThread ;
+}
+
+void GUI::showTrajectory(const xsim::JointTrajectory &traj) {
+
+    for( int i=0 ; i<100 ; i++ ) {
+        float t = i/100.0f ;
+        JointState state = traj.getState(t, world_->iplan()) ;
+        auto pose = world_->iplan()->getToolPose(state) ;
+        Isometry3f tp = Isometry3f::Identity() ;
+        tp.translation() = pose.translation() ;
+        traj_points_[i]->setTransform(tp) ;
+    }
+
+    traj_node_->setVisible(true) ;
 }
 
 void GUI::onUpdate(float delta) {

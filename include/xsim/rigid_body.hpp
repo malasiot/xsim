@@ -112,6 +112,11 @@ public:
         return *this ;
     }
 
+    RigidBodyBuilder &setGravity(const Eigen::Vector3f &g) {
+        gravity_ = g ;
+        return *this ;
+    }
+
 private:
 
 
@@ -122,7 +127,7 @@ private:
     CollisionShapePtr collision_shape_ ;
     xviz::NodePtr visual_shape_ ;
     float mass_ = 0.0f ;
-    std::optional<Eigen::Vector3f> local_inertia_ ;
+    std::optional<Eigen::Vector3f> local_inertia_, gravity_;
     std::optional<float> friction_, linear_damping_, angular_damping_,
         rolling_friction_, spinning_friction_, restitution_ ;
 

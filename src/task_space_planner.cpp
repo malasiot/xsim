@@ -55,7 +55,7 @@ public:
 
     OmplTaskValidityChecker(const ompl::base::SpaceInformationPtr &si,
                             PlanningInterface *manip, const TaskSpace *ts): StateValidityChecker(si), manip_(manip), ts_(ts),
-        ompl_state_space(si->getStateSpace())
+        ompl_state_space_(si->getStateSpace())
     {
 
     }
@@ -64,7 +64,7 @@ public:
 
 private:
 
-    const ompl::base::StateSpacePtr &ompl_state_space ;
+    const ompl::base::StateSpacePtr &ompl_state_space_ ;
     PlanningInterface *manip_ ;
     const TaskSpace *ts_ ;
 };
@@ -166,7 +166,7 @@ bool OmplTaskValidityChecker::isValid(const ompl::base::State *state) const
 
     std::vector<double> tsv ;
 
-    getOmplTaskState(ompl_state_space, ompl_state, tsv) ;
+    getOmplTaskState(ompl_state_space_, ompl_state, tsv) ;
 
     Isometry3f pose ;
     ts_->taskSpaceToPose(tsv, pose) ;
@@ -207,7 +207,7 @@ class OmplTaskGoalSampler {
 
     const ompl::base::SpaceInformationPtr &si_ ;
     const ompl::base::ProblemDefinitionPtr &pd_ ;
-    int max_sample_count_ = 15;
+    int max_sample_count_ = 50;
 
 
 
@@ -286,7 +286,7 @@ bool TaskSpacePlanner::solve(const GoalRegion &goal, const TaskSpace &ts, JointT
 
     ScopedState<RealVectorStateSpace> start_state(ompl_state_space) ;
 
-    Isometry3f pose = iplan_->getToolPose() ;
+    Isometry3f pose = iplan_->getToolPose(iplan_->startState()) ;
 
     std::vector<double> start_state_vec ;
     ts.poseToTaskSpace(pose, start_state_vec) ;

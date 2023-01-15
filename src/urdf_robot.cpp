@@ -77,11 +77,18 @@ void URDFRobot::computeLinkTransformRecursive(std::map<std::string, Isometry3f> 
         local_inertial_frame = link->inertial_->origin_;
 
     if ( parent_joint ) {
-        p2j = parent_joint->getMatrix() ;
+        const URDFLink *parent_link = getLink(parent_joint->parent_);
+        Isometry3f parent_inertial_frame = Isometry3f::Identity() ;
+        if ( parent_link->inertial_ )
+            parent_inertial_frame = parent_link->inertial_->origin_ ;
+        p2j =  parent_joint->origin_ * parent_joint->getMatrix() ;
+
+       // p2j = parent_inertial_frame.inverse() * p2j * local_inertial_frame ;
 
     }
 
     tr = parent * p2j ;
+
     transforms.emplace(link->name_, global_ * tr) ;
 
     for( const URDFLink *l: link->child_links_ ) {
@@ -100,7 +107,7 @@ Isometry3f URDFJoint::getMatrix() const {
         tr.translate(axis_* position_) ;
     }
 
-    return origin_ * tr ;
+    return tr ;
 }
 
 

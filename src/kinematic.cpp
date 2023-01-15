@@ -1,5 +1,7 @@
 #include <xsim/kinematic.hpp>
 
+#include <iostream>
+
 using namespace std ;
 using namespace Eigen ;
 
@@ -36,6 +38,8 @@ public:
         else {
             if ( val >= lower_ && val <= upper_ ) position_ = val ;
         }
+
+        updateLocalTransform();
     }
 
     double getDistance(double v1, double v2) const override {
@@ -89,6 +93,8 @@ public:
         else {
             if ( val >= lower_ && val <= upper_ ) position_ = val ;
         }
+
+        updateLocalTransform();
     }
 
     double getDistance(double v1, double v2) const override {
@@ -155,6 +161,7 @@ public:
 
     void setPosition(double val, KinematicJoint::LimitCheckType lt)  {
         position_ = val ;
+        updateLocalTransform();
     }
 
     double getDistance(double v1, double v2) const override {
@@ -200,6 +207,8 @@ void KinematicModel::create(const URDFRobot &robot) {
 
         KinematicLinkPtr cl(new KinematicLink);
         cl->name_ = name ;
+        if ( link.inertial_ )
+            cl->local_inertial_frame_ = link.inertial_->origin_ ;
         links_.emplace(name, cl) ;
     }
 
@@ -260,8 +269,15 @@ void KinematicModel::updateWorldTransforms() {
 }
 
 void KinematicLink::updateWorldTransform() {
-    if ( parent_joint_ )
-        world_ = parent_joint_->parentLink()->world_ * parent_joint_->origin() * parent_joint_->local();
+    if ( parent_joint_ ) {
+        Isometry3f parent_inertial_frame = parent_joint_->parentLink()->local_inertial_frame_ ;
+
+       // world_ = parent_joint_->parentLink()->world_ * parent_inertial_frame.inverse() *
+      //         parent_joint_->origin() * parent_joint_->local() * local_inertial_frame_ ;
+
+        world_ = parent_joint_->parentLink()->world_ *
+                 parent_joint_->origin() * parent_joint_->local()  ;
+    }
     for( const auto &cl: child_joints_ ) {
         cl->child_->updateWorldTransform();
     }
@@ -299,7 +315,6 @@ void KinematicModel::setJointPosition(const std::string &name, double val, Kinem
     assert(joint) ;
 
     joint->setPosition(val, type) ;
-    joint->updateLocalTransform() ;
     joint->updateLinkTransforms() ;
 }
 
@@ -365,6 +380,20 @@ std::vector<string> KinematicModel::getJointNames() const {
         }
     }
     return joints ;
+}
+
+ostream &operator <<(std::ostream &strm, const JointState &state) {
+    for( const auto &jp: state ) {
+        strm <<jp.first << ": " << jp.second << endl ;
+    }
+    return strm ;
+}
+
+void printJointState(std::ostream &strm, const JointState &state)
+{
+    for( const auto &jp: state ) {
+        strm <<jp.first << ": " << jp.second << endl ;
+    }
 }
 
 }

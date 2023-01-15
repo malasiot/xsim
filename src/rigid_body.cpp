@@ -105,6 +105,7 @@ RigidBody::RigidBody(const RigidBodyBuilder &rb)
     if ( rb.spinning_friction_ )  cInfo.m_spinningFriction = rb.spinning_friction_.value() ;
     if ( rb.restitution_ )        cInfo.m_restitution = rb.restitution_.value() ;
 
+
     btRigidBody* body = new btRigidBody(cInfo);
 
     body->activate(true) ;
@@ -114,6 +115,8 @@ RigidBody::RigidBody(const RigidBodyBuilder &rb)
         if ( visual_shape_ )
             visual_shape_->setTransform(rb.world_transform_);
     }
+
+    if ( rb.gravity_ ) body->setGravity(toBulletVector(rb.gravity_.value()));
 
     handle_.reset(body);
 

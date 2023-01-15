@@ -88,12 +88,14 @@ public:
         return solver.solve(pose, seed, solution) ;
     }
 
-    Isometry3f getToolPose() override {
-        robot_.setJointState(start_state_) ;
+    Isometry3f getToolPose(const JointState &state) override {
+        robot_.setJointState(state) ;
         auto pose = robot_.getLinkTransform("ee_link") ;
         pose.translation() -= Vector3f{-0.1, -0.2, 0.65}; // transform to robot base coordinates
         return pose ;
     }
+
+//    void updateCollisionEnv(const std::map<std::string, Eigen::Isometry3f> &trs) override {}
 
     KinematicModel robot_ ;
     CollisionSpace collisions_ ;

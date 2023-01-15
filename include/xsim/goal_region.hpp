@@ -5,6 +5,8 @@
 
 namespace xsim {
 
+class PlanningInterface ;
+
 class GoalRegion {
 
 public:

@@ -20,13 +20,6 @@ struct CollisionObjectPrivate {
     CollisionShapePtr shape_ ;
 };
 
-class CollisionLinkChecker {
-public:
-
-
-
-};
-
 struct CollisionFilterCallback : public btOverlapFilterCallback
 {
     CollisionFilterCallback() {
@@ -34,14 +27,18 @@ struct CollisionFilterCallback : public btOverlapFilterCallback
 
     virtual bool needBroadphaseCollision(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1) const
     {
-        assert(static_cast<btCollisionObject*>(proxy0->m_clientObject) != NULL);
-        assert(static_cast<btCollisionObject*>(proxy1->m_clientObject) != NULL);
+
+        bool cull = !(proxy0->m_collisionFilterMask & proxy1->m_collisionFilterGroup);
+        cull = cull || !(proxy1->m_collisionFilterMask & proxy0->m_collisionFilterGroup);
+
+        if (cull)
+            return false;
 
         CollisionObjectPrivate *k0 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy0->m_clientObject)->getUserPointer());
         CollisionObjectPrivate *k1 = reinterpret_cast<CollisionObjectPrivate *>(reinterpret_cast<btCollisionObject*>(proxy1->m_clientObject)->getUserPointer());
 
         if ( isActive(k0->name_) && isActive(k1->name_) && isActive(k0->name_, k1->name_) ) {
- //          cout << k0->name_ << ' ' << k1->name_ << endl ;
+        //    cout << "accepted:" << k0->name_ << ' ' << k1->name_ << endl ;
             return true ;
         }
 
@@ -64,38 +61,23 @@ struct CollisionFilterCallback : public btOverlapFilterCallback
     }
 
     bool isActive(const string &link) const { return exclusions_.count(link) == 0 ; }
-    bool isActive(const string &link1, const string &link2) const { return expairs_.count(make_pair(link1, link2)) == 0 ; }
+    bool isActive(const string &link1, const string &link2) const {
+        return ( expairs_.count(make_pair(link1, link2)) == 0 ) &&
+                ( expairs_.count(make_pair(link2, link1)) == 0 ) ;
+    }
 
     set<std::pair<std::string, std::string>> expairs_ ;
     set<string> exclusions_ ;
 
 };
 
-class CollisionDispatcher : public btCollisionDispatcher  {
-public:
-    CollisionDispatcher(btCollisionConfiguration* collisionConfiguration): btCollisionDispatcher(collisionConfiguration) {}
-
-#if BT_BULLET_VERSION > 279
-    virtual bool needsCollision(const btCollisionObject* co0, const btCollisionObject* co1)
-#else
-    virtual bool needsCollision(btCollisionObject* co0, btCollisionObject* co1)
-#endif
-    {
-        CollisionObjectPrivate *k0 = reinterpret_cast<CollisionObjectPrivate *>(co0->getUserPointer());
-        CollisionObjectPrivate *k1 = reinterpret_cast<CollisionObjectPrivate *>(co1->getUserPointer());
-
-        return true ;
-
-    }
-
-};
 
 CollisionSpace::CollisionSpace() {
     broadphase_.reset(new btDbvtBroadphase());
     config_.reset(new btDefaultCollisionConfiguration())  ;
     dispatcher_.reset(new  btCollisionDispatcher(config_.get()));
-    cb_.reset(new CollisionFilterCallback()) ;
-    broadphase_->getOverlappingPairCache()->setOverlapFilterCallback(cb_.get());
+    filter_cb_.reset(new CollisionFilterCallback()) ;
+    broadphase_->getOverlappingPairCache()->setOverlapFilterCallback(filter_cb_.get());
     world_.reset(new btCollisionWorld(dispatcher_.get(), broadphase_.get(), config_.get()));
 
 }
@@ -180,12 +162,12 @@ void CollisionSpace::addRobot(const URDFRobot &robot, float margin, bool disable
                 gc->addChild(shapes[i], origins[i]) ;
             }
             col_shape.reset(gc) ;
-         }
+        }
         col_shape->setMargin(margin);
 
         auto it = link_transforms.find(link.name_) ;
 
-     //   cout << link.name_ << ' ' << (it->second* col_origin).matrix() << endl ;
+        //   cout << link.name_ << ' ' << (it->second* col_origin).matrix() << endl ;
 
         addCollisionObject(link.name_, col_shape, it->second * col_origin);
     }
@@ -210,7 +192,10 @@ CollisionShapePtr CollisionSpace::makeCollisionShape(const URDFGeometry *geom) {
 }
 
 bool CollisionSpace::hasCollision() {
-    broadphase_->calculateOverlappingPairs(dispatcher_.get());
+  //  broadphase_->calculateOverlappingPairs(dispatcher_.get());
+  //  btOverlappingPairCache* pair_cache = broadphase_->getOverlappingPairCache();
+  //  pair_cache->processAllOverlappingPairs(overlap_cb_.get(), dispatcher_.get());
+
     world_->performDiscreteCollisionDetection();
 
     int numManifolds = world_->getDispatcher()->getNumManifolds();
@@ -225,7 +210,7 @@ bool CollisionSpace::hasCollision() {
         assert(coA != nullptr) ;
 
         const CollisionObjectPrivate *coB = static_cast<const CollisionObjectPrivate *>(obB->getUserPointer());
-           assert(coB != nullptr) ;
+        assert(coB != nullptr) ;
 
         int numContacts = contactManifold->getNumContacts();
 
@@ -242,19 +227,22 @@ bool CollisionSpace::hasCollision() {
 }
 
 void CollisionSpace::disableCollision(const std::string &l1, const std::string &l2) {
-    cb_->excludeLinkPair(l1, l2) ;
+    filter_cb_->excludeLinkPair(l1, l2) ;
 }
 
 void CollisionSpace::enableCollision(const std::string &l1, const std::string &l2) {
-    cb_->includeLinkPair(l1, l2) ;
+    filter_cb_->includeLinkPair(l1, l2) ;
 }
 
 void CollisionSpace::updateObjectTransform(const std::string &name, const Eigen::Isometry3f &tr) {
     auto it = objects_.find(name) ;
     if ( it == objects_.end() ) return ;
     std::shared_ptr<CollisionObjectPrivate> p = it->second ;
-    p->obj_->setWorldTransform(toBulletTransform(tr));
-    world_->updateSingleAabb(p->obj_.get());
+    btCollisionObject *obj = p->obj_.get() ;
+
+    obj->setWorldTransform(toBulletTransform(tr));
+
+    world_->updateSingleAabb(obj);
 }
 
 void CollisionSpace::updateObjectTransforms(const map<string, Isometry3f> &trs) {

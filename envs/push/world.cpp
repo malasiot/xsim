@@ -1,11 +1,10 @@
 #include "world.hpp"
 #include "robot.hpp"
-
-#include <xsim/joint_state_planner.hpp>
-#include <xsim/collision_space.hpp>
-#include <xsim/kinematic.hpp>
+#include "ur5_ik_solver.hpp"
+#include "planning_interface.hpp"
 
 #include <xsim/collision_space.hpp>
+#include <xsim/robot_scene.hpp>
 
 #include <cvx/misc/format.hpp>
 #include <thread>
@@ -14,78 +13,6 @@ using namespace std;
 using namespace xsim ;
 using namespace Eigen ;
 
-
-class UR5Planning: public PlanningInterface {
-public:
-    UR5Planning(const URDFRobot &robot, std::vector<RigidBodyPtr> &boxes): robot_(robot), boxes_(boxes) {
-
-        collisions_.disableCollision("base_link", "table");
-        collisions_.addRobot(robot) ;
-
-        for ( int i=0 ; i<6  ; i++) {
-            double val = robot_.getJointPosition(UR5IKSolver::ur5_joint_names[i]) ;
-            start_state_.emplace(UR5IKSolver::ur5_joint_names[i], val) ;
-        }
-
-        auto pose_ee = robot_.getLinkTransform("ee_link") ;
-        auto pose_tool = robot_.getLinkTransform("ee_tool") ;
-
-        tool_to_ee_ = pose_tool.inverse() * pose_ee ;
-    }
-
-
-    bool isStateValid(const JointState &state) override  {
-        std::lock_guard<std::mutex> lock(mutex_) ;
-
-        robot_.setJointState(state) ;
-
-        map<string, Isometry3f> trs = robot_.getLinkTransforms() ;
-        collisions_.updateObjectTransforms(trs) ;
-        for( const auto &box: boxes_ ) {
-          collisions_.updateObjectTransform(box->getName(), box->getWorldTransform());
-        //    cout << box->getName() << ' ' << box->getWorldTransform().matrix() << endl ;
-        }
-
-        return !collisions_.hasCollision() ;
-    }
-    std::vector<std::string> getJointChain() const override {
-        vector<string> joints ;
-        std::copy(UR5IKSolver::ur5_joint_names, UR5IKSolver::ur5_joint_names + 6, std::back_inserter(joints)) ;
-        return joints ;
-    }
-    void getLimits(const std::string &name, double &lower, double &upper) const override {
-        KinematicJointPtr joint = robot_.getJoint(name) ;
-        assert(joint) ;
-        joint->getLimits(lower, upper) ;
-    }
-
-    bool solveIK(const Eigen::Isometry3f &pose, std::vector<JointState> &solutions) const override {
-        UR5IKSolver solver ;
-
-        return solver.solve(pose * tool_to_ee_, solutions) ;
-    }
-
-    bool solveIK(const Eigen::Isometry3f &pose, const JointState &seed, JointState &solution) const override {
-        UR5IKSolver solver ;
-        return solver.solve(pose * tool_to_ee_, seed, solution) ;
-    }
-
-    Isometry3f getToolPose() override {
-        robot_.setJointState(start_state_) ;
-        auto pose = robot_.getLinkTransform("ee_tool") ;
-        //    pose.translation() -= Vector3f{-0.1, -0.2, 0.65}; // transform to robot base coordinates
-        return pose ;
-    }
-
-    KinematicModel robot_ ;
-    CollisionSpace collisions_ ;
-    std::vector<xsim::RigidBodyPtr> &boxes_ ;
-    std::mutex mutex_ ;
-    Isometry3f tool_to_ee_ ;
-};
-
-
-
 World::World(const Parameters &params): params_(params) {
 
     createMultiBodyDynamicsWorld();
@@ -93,37 +20,51 @@ World::World(const Parameters &params): params_(params) {
 
     URDFRobot robot = URDFRobot::load(params.data_dir_ + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
 
+
+    for ( int i=0 ; i<6  ; i++) {
+        robot.setJointPosition(UR5IKSolver::ur5_joint_names[i], 0);
+    }
     robot.setJointPosition("shoulder_lift_joint", -1.2);
     robot.setJointPosition("elbow_joint", 0.7);
     //    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.65}));
 
+    collisions_.reset(new CollisionSpace()) ;
+    collisions_->disableCollision("base_link", "table");
+    collisions_->disableCollision("shoulder_link", "table");
+    collisions_->addRobot(robot, 0.01) ;
 
-    planner_.reset(new UR5Planning(robot, boxes_)) ;
+    iplan_.reset(new UR5Planning(robot, collisions_.get())) ;
+    planner_.reset(new Planner(iplan_.get())) ;
 
     createScene(robot) ;
 
+    resetRobot() ;
+
+    vcol_= RobotScene::fromURDF(robot, true) ;
+
+}
+
+std::map<string, Isometry3f> World::getBoxTransforms() const {
+    std::map<string, Isometry3f> trs ;
+    for( const auto &b: boxes_ ) {
+        trs.emplace(b->getName(), b->getWorldTransform()) ;
+    }
+    return trs ;
+}
+
+std::vector<string> World::getBoxNames() const {
+    std::vector<string> names(boxes_.size()) ;
+    std::transform(boxes_.begin(), boxes_.end(), names.begin(), [](const RigidBodyPtr &b) { return b->getName() ;}) ;
+    return names ;
 }
 
 void World::disableToolCollisions(const std::string &box) {
-    static_pointer_cast<UR5Planning>(planner_)->collisions_.disableCollision(box, "tool") ;
+    collisions_->disableCollision(box, "tool") ;
 }
 
 void World::enableToolCollisions(const std::string &box) {
-    static_pointer_cast<UR5Planning>(planner_)->collisions_.enableCollision(box, "tool") ;
+    collisions_->enableCollision(box, "tool") ;
 }
-
-class WorldCollisionFilter: public xsim::CollisionFilter {
-public:
-    WorldCollisionFilter() = default ;
-
-    bool collide(CollisionObject *obj1, CollisionObject *obj2) {
-
-        if ( obj1->getName() == "base_link" && obj2->getName() == "table" ) return false ;
-        if ( obj1->getName() == "table" && obj2->getName() == "base_link" ) return false ;
-        cout << obj1->getName() << ' ' << obj2->getName() << endl ;
-        return true ;
-    }
-};
 
 void World::resetRobot() {
     for ( int i=0 ; i<6  ; i++) {
@@ -138,7 +79,12 @@ void World::resetRobot() {
         double val = robot_mb_->getJointPosition(UR5IKSolver::ur5_joint_names[i]) ;
         state.emplace(UR5IKSolver::ur5_joint_names[i], val) ;
     }
-    planner_->setStartState(state) ;
+
+    stepSimulation(0.05) ;
+
+    map<string, Isometry3f> trs ;
+    robot_mb_->getLinkTransforms(trs);
+    iplan_->setStartState(state) ;
 }
 
 void World::reset() {
@@ -149,14 +95,36 @@ void World::reset() {
     resetRobot() ;
 }
 
+void World::updateCollisionEnv() {
+    auto trs = getBoxTransforms() ;
+    collisions_->updateObjectTransforms(trs);
+}
+
 void World::createScene(const URDFRobot &robot) {
     CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{params_.table_width_/2.0, params_.table_height_/2.0, 0.001})) ;
     table_cs->setMargin(0) ;
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
 
-    planner_->collisions_.disableCollision("table", "base_link");
-    planner_->collisions_.addCollisionObject("table", table_cs, table_tr);
+    Isometry3f pusher_tr(Translation3f{0, 0.4, 0.05}) ;
 
+
+     URDFRobot pusher = URDFRobot::load(params_.data_dir_ + "robots/pusher.urdf") ;
+     pusher_ = addMultiBody(MultiBodyBuilder(pusher)
+                              .setName("pusher")
+                              .setFixedBase()
+                              .setMargin(0.01)
+                              .setLinearDamping(0.f)
+                              .setAngularDamping(0.f)
+                            .setWorldTransform(pusher_tr)
+                              ) ;
+
+     Joint *ctrl = pusher_->findJoint("pusher_slider_joint") ;
+     ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.1).setTargetPosition(0.2));
+
+
+
+    collisions_->disableCollision("table", "base_link");
+    collisions_->addCollisionObject("table", table_cs, table_tr);
 
     // ur5 + gripper
     robot_mb_ = addMultiBody(MultiBodyBuilder(robot)
@@ -178,15 +146,14 @@ void World::createScene(const URDFRobot &robot) {
                              .setWorldTransform(table_tr)
                              ) ;
 
-    controller_.reset(new Robot(robot_mb_, planner_.get())) ;
-
-    // setCollisionFilter(new WorldCollisionFilter());
-
+    controller_.reset(new Robot(this, robot_mb_)) ;
 
 
     CollisionShapePtr box_cs(new BoxCollisionShape(params_.box_sz_));
-    box_cs->setMargin(0.02) ;
+    box_cs->setMargin(0.0) ;
 
+    CollisionShapePtr box_cs2(new BoxCollisionShape(params_.box_sz_));
+    box_cs2->setMargin(0.02) ;
 
     float gap = 0.0001 ;
 
@@ -220,9 +187,8 @@ void World::createScene(const URDFRobot &robot) {
 
             orig_trs_.emplace_back(box_tr) ;
 
-            planner_->collisions_.disableCollision("table", name);
-            planner_->collisions_.addCollisionObject(name, box_cs, box_tr);
-
+            collisions_->disableCollision("table", name);
+            collisions_->addCollisionObject(name, box_cs2, box_tr);
 
             box_names.emplace_back(name) ;
         }
@@ -231,8 +197,55 @@ void World::createScene(const URDFRobot &robot) {
 
     for( const auto &ba: box_names ) {
         for( const auto &bb: box_names ) {
-            planner_->collisions_.disableCollision(ba, bb);
+            collisions_->disableCollision(ba, bb);
         }
+    }
+
+
+}
+
+void World::coverage_analysis() {
+
+    ofstream strm("/tmp/coverage.ply") ;
+
+    vector<Vector3f> reachable, collision_free ;
+
+    for( float x = -params_.table_width_/2 + params_.table_offset_x_ ; x<= params_.table_width_/2 +  params_.table_offset_x_; x+=0.02 ) {
+        for( float y = 0 ; y<= 1; y+=0.02 ) {
+            for( float z = 0.02 ; z < 0.5 ; z += 0.01 ) {
+                JointState seed, solution ;
+                Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
+                Isometry3f p = Isometry3f::Identity() ;
+                p.linear() = m ;
+                p.translation() = Vector3f{x, y, z} ;
+
+                vector<JointState> solutions ;
+                if ( iplan()->solveIK(p, solutions)  ) {
+                    bool found = false ;
+                    for( int i=0 ; i<solutions.size() ; i++ ) {
+                        if ( iplan()->isStateValid(solutions[i]) ) {
+                            found = true ;
+
+                            break ;
+                        }
+                    }
+                    if ( !found ) collision_free.emplace_back(x, y, z) ;
+                }
+            }
+        }
+    }
+
+    strm << "ply\nformat ascii 1.0\n" ;
+    strm << "element vertex " << collision_free.size() + reachable.size() << endl ;
+    strm << "property float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\n";
+    strm << "end_header\n";
+
+    for( const auto &v: reachable ) {
+        strm << v.adjoint() << ' ' << "0 255 0\n" ;
+    }
+
+    for( const auto &v: collision_free ) {
+        strm << v.adjoint() << ' ' << "255 0 0\n" ;
     }
 
 

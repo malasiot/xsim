@@ -7,6 +7,7 @@
 namespace xsim {
 class CollisionDispatcher ;
 struct CollisionFilterCallback ;
+
 struct CollisionObjectPrivate ;
 
 class CollisionSpace
@@ -16,7 +17,7 @@ public:
     ~CollisionSpace() ;
 
     void addCollisionObject(const std::string &name, const CollisionShapePtr &shape, const Eigen::Isometry3f &wtr) ;
-    void addRobot(const URDFRobot &rb, float collision_margin = 0.01, bool disable_self_collisions = true);
+    void addRobot(const URDFRobot &rb, float collision_margin = 0.04, bool disable_self_collisions = true);
 
     bool hasCollision();
     void disableCollision(const std::string &l1, const std::string &l2) ;
@@ -29,7 +30,8 @@ private:
     std::unique_ptr<btCollisionDispatcher> dispatcher_ ;
     std::unique_ptr<btDefaultCollisionConfiguration> config_ ;
     std::unique_ptr<btCollisionWorld> world_ ;
-    std::unique_ptr<CollisionFilterCallback> cb_ ;
+    std::unique_ptr<CollisionFilterCallback> filter_cb_ ;
+
     std::map<std::string, std::shared_ptr<CollisionObjectPrivate>> objects_ ;
 
     CollisionShapePtr makeCollisionShape(const URDFGeometry *geom);

@@ -2,6 +2,7 @@
 #define XSIM_KINEMATIC_HPP
 
 #include <memory>
+#include <ostream>
 
 #include <xsim/urdf_robot.hpp>
 
@@ -54,8 +55,8 @@ protected:
     std::string name_ ;
     KinematicLinkPtr parent_, child_ ;
 
-    Eigen::Isometry3f origin_ ; // joint frame transform
-    Eigen::Isometry3f local_;  // dof transform
+    Eigen::Isometry3f origin_ = Eigen::Isometry3f::Identity(); // joint frame transform
+    Eigen::Isometry3f local_ = Eigen::Isometry3f::Identity();  // dof transform
 };
 
 using KinematicJointPtr = std::shared_ptr<KinematicJoint> ;
@@ -75,6 +76,7 @@ protected:
     KinematicJointPtr parent_joint_ ;
     std::vector<KinematicJointPtr> child_joints_ ;
     Eigen::Isometry3f world_ = Eigen::Isometry3f::Identity(); // world transform
+    Eigen::Isometry3f local_inertial_frame_ = Eigen::Isometry3f::Identity() ;
 };
 
 
@@ -114,6 +116,10 @@ private:
     void updateWorldTransforms() ;
 
 };
+
+void printJointState(std::ostream &, const JointState &state) ;
+
+std::ostream &operator <<(std::ostream &strm, const JointState &state);
 
 } // namespace xsim
 

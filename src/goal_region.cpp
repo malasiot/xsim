@@ -1,7 +1,7 @@
 #include <xsim/goal_region.hpp>
 
 #include <ompl/util/RandomNumbers.h>
-
+#include <iostream>
 using namespace Eigen ;
 using namespace std ;
 
@@ -48,6 +48,7 @@ void SimplePoseGoal::sample(vector<double> &xyz_rpy) const {
     double r = g_rng.uniformReal(lower_bounds_[3], upper_bounds_[3]) ;
     double p = g_rng.uniformReal(lower_bounds_[4], upper_bounds_[4]) ;
     double y = g_rng.uniformReal(lower_bounds_[5], upper_bounds_[5]) ;
+
 
     xyz_rpy.push_back(X) ;
     xyz_rpy.push_back(Y) ;

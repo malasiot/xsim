@@ -25,6 +25,10 @@ add_executable(push_env
     world.hpp
     robot.cpp
     robot.hpp
+    planner.cpp
+    planner.hpp
+    planning_interface.cpp
+    planning_interface.hpp
 )
 set_target_properties(push_env PROPERTIES AUTOMOC TRUE)
 target_link_libraries(push_env xsim cvx ${BULLET_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})

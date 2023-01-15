@@ -58,7 +58,7 @@ endif (OMPL_FOUND)
 
 add_library(xsim SHARED ${LIB_SOURCES})
 
-target_link_libraries(xsim  xviz ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})
+target_link_libraries(xsim  xviz cvx ${BULLET_LIBRARIES} ${OMPL_LIBRARIES})
 
 # Install library
 install(TARGETS xsim

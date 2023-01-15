@@ -143,6 +143,32 @@ RobotScenePtr RobotScene::parseRobotURDF(const URDFRobot &rb, bool collision_geo
             scene->addChild(link_node) ;
 
         }
+        else {
+            NodePtr link_node(new Node) ;
+            link_node->setName(link.name_) ;
+
+
+            for( const auto &geom: link.collision_geoms_ ) {
+
+                const std::string &matref = geom->material_ref_ ;
+
+                MaterialPtr mat ;
+                auto mat_it = materials.find(matref) ;
+                if ( mat_it != materials.end() )
+                    mat = mat_it->second ;
+
+                Vector3f scale{1, 1, 1} ;
+                NodePtr geom_node = createLinkGeometry(geom.get(), mat, scale) ;
+
+                geom_node->setTransform(geom->origin_) ;
+
+                link_node->addChild(geom_node) ;
+
+
+            }
+
+            scene->addChild(link_node) ;
+        }
 
 
     }

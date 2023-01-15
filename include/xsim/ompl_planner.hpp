@@ -26,9 +26,12 @@ public:
     virtual bool solveIK(const Eigen::Isometry3f &pose, std::vector<xsim::JointState> &solutions) const = 0;
     virtual bool solveIK(const Eigen::Isometry3f &pose, const JointState &seed, xsim::JointState &solution) const = 0;
 
+ //   virtual void updateCollisionEnv(const std::map<std::string, Eigen::Isometry3f> &trs) = 0 ;
 
     // get the world coordinates of the link used for task planning at the start state
-    virtual Eigen::Isometry3f getToolPose() = 0 ;
+    virtual Eigen::Isometry3f getToolPose(const JointState &state) = 0 ;
+
+    const JointState &startState() const { return start_state_ ; }
 
 protected:
     JointState start_state_ ;
@@ -40,15 +43,32 @@ public:
 
     JointTrajectory() {}
 
+    void clear() {
+        points_.clear() ;
+        times_.clear() ;
+    }
+
     void addPoint(double t, const JointState &state) {
         points_.push_back(state) ;
         times_.push_back(t) ;
     }
 
+    void append(const JointTrajectory &other) ;
+
+    JointState getState(float t, PlanningInterface *iplan) const ;
+
     // linear interpolation of joint at time t [0, 1]
     double lerp(const std::string &joint, double t) const ;
 
     const std::vector<JointState> &points() const { return points_ ; }
+
+    friend std::ostream &operator<<(std::ostream &strm, const JointTrajectory &traj) {
+        for( int i=0 ; i<traj.points_.size() ; i++ ) {
+            strm << "wpt: " << i << std::endl ;
+            strm << traj.points_[i] << std::endl ;
+        }
+        return strm ;
+    }
 
 protected:
 

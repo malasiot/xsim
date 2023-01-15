@@ -57,8 +57,8 @@ public:
         return solver.solve(pose, seed, solution) ;
     }
 
-    Isometry3f getToolPose() override {
-        robot_.setJointState(start_state_) ;
+    Isometry3f getToolPose(const JointState &state) override {
+        robot_.setJointState(state) ;
         return robot_.getLinkTransform("ee_link") ;
     }
 
@@ -70,6 +70,8 @@ public:
          return state ;
     }
 
+ //   void updateCollisionEnv(const std::map<std::string, Eigen::Isometry3f> &trs) override {}
+
 
     KinematicModel robot_ ;
     CollisionSpace collisions_ ;
@@ -78,7 +80,7 @@ public:
 bool move_arm_tip(PlanningInterface &iplan, const Vector3f &dp, JointTrajectory &traj)
 {
 
-    Isometry3f pose = iplan.getToolPose() ;
+    Isometry3f pose = iplan.getToolPose(traj.points().front()) ;
 
     Vector3f c0 = pose.translation() ;
     auto r0 = pose.linear() ;
@@ -94,7 +96,9 @@ bool move_arm_tip(PlanningInterface &iplan, const Vector3f &dp, JointTrajectory 
     MoveRelativeTaskSpace ts(pose, dp, 0.02, { 0.01, 0.01, 0.001}) ;
 
     TaskSpacePlanner planner(&iplan) ;
-    planner.solve(goal, ts, traj);
+    return planner.solve(goal, ts, traj);
+
+
 
 }
 
@@ -118,11 +122,9 @@ int main(int argc, char *argv[]) {
     pose.linear() = rot.matrix() ;
     pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
 
-    vector<Isometry3f> poses ;
-    poses.push_back(pose) ;
 
     JointTrajectory traj ;
-    planner.solve(poses, traj) ;
+    planner.solve(pose, traj) ;
 
     start_state = traj.points().back() ;
 }

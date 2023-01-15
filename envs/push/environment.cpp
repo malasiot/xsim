@@ -27,9 +27,10 @@ std::vector<PushAction> Environment::getActions() const {
             actions.emplace_back(a) ;
         }
     }
+    return actions ;
 }
 
-float Environment::apply(const State &state, const PushAction &action) {
+pair<State, float> Environment::transition(const State &state, const PushAction &action) {
 
 
     auto it = state.boxes_.find(action.box_id_) ;
@@ -44,45 +45,80 @@ float Environment::apply(const State &state, const PushAction &action) {
     tr.translation() = p1  ;
     tr.linear() = rot.matrix() ;
 
+
+
     JointTrajectory traj ;
-    if ( !world_->controller_->plan(tr, traj) ) {
-        return false ;
+
+   // world_->controller_->updateCollisionEnv(world_->getBoxTransforms()) ;
+    auto start_state = world_->controller()->getJointState() ;
+    if ( !world_->planner()->plan(start_state, tr, traj) ) {
+        State new_state ;
+        new_state.type_ = STATE_UNREACHABLE ;
+        return make_pair(new_state, computeReward(new_state)) ;
     }
 
-//    world_->controller_->executeTrajectory(*world_, traj, 5.0) ;
+    push_ = traj ;
 
-    world_->controller_->setJointState(traj.points().back()) ;
+    world_->controller()->executeTrajectory(traj, 0.5) ;
 
+//    world_->controller()->setJointState(traj.points().back()) ;
+ //   world_->stepSimulation(0.05);
+#if 1
     world_->disableToolCollisions(action.box_id_) ;
 
-    JointTrajectory push ;
-    if ( !world_->controller_->planRelative(p2 - p1, push) ) {
-        return false ;
+
+    push_.clear() ;
+    if ( !world_->planner()->planRelative(world_->controller()->getJointState(), p2 - p1, push_) ) {
+        State new_state ;
+        new_state.type_ = STATE_UNREACHABLE ;
+        return make_pair(new_state, computeReward(new_state)) ;
     }
 
-    world_->controller_->executeTrajectory(*world_, push, 0.01) ;
+    cout << action.box_id_ << endl ;
+    cout << p1.adjoint() << endl ;
+    cout << p2.adjoint() << endl ;
+    cout << push_ << endl ;
+    world_->controller()->executeTrajectory(push_, 0.2) ;
+    world_->updateCollisionEnv() ;
+    trial_ ++ ;
 
     world_->enableToolCollisions(action.box_id_) ;
-
     world_->resetRobot() ;
+#endif
 
-    runSim(0.5) ;
 
-    return true ;
+    runSim(0.05) ;
+
+    State new_state = getState() ;
+
+    return make_pair(new_state, computeReward(new_state)) ;
 }
 
 State Environment::getState() const {
     State state ;
-    for( const auto &b: world_->boxes_ ) {
-        string name = b->getName() ;
-        Isometry3f tr = b->getWorldTransform();
+
+    if ( trial_ == max_trials_ )
+        state.type_ = STATE_MAX_MOVES_REACHED ;
+
+    for( const auto &bp: world_->getBoxTransforms() ) {
+        string name = bp.first ;
+        Isometry3f tr = bp.second;
+
+        Vector3f top = tr.linear() * Vector3f(0, 0, world_->params().box_sz_.z()) ;
+        if ( fabs(top.z()) < 0.01 ) {
+            state.type_ = STATE_OBJECTS_TURNED ;
+            break ;
+        } else if ( tr.translation().z() < world_->params().box_sz_.z() - 0.01 ) {
+            state.type_ = STATE_OUTSIDE_OF_WORKSPACE ;
+        }
+
         Vector2f c = tr.translation().head<2>() ;
+
         BoxState bs ;
         bs.cx_ = c.x() ;
         bs.cy_ = c.y() ;
         bs.theta_ = acos(tr(0, 0)) ;
 
-        cout << name << ' ' << c.adjoint() << ' ' << bs.theta_ << endl ;
         state.boxes_.emplace(name, std::move(bs)) ;
     }
 
@@ -118,7 +154,7 @@ cv::Mat Environment::renderState(const PushAction &a, const State &state) {
     const float scale = 2000 ;
     float minx = large, miny = large ;
     float maxx = -large, maxy = -large ;
-    float bsx = world_->params_.box_sz_.x(), bsy = world_->params_.box_sz_.y() ;
+    float bsx = world_->params().box_sz_.x(), bsy = world_->params().box_sz_.y() ;
 
     for( const auto &bp: state.boxes_ ) {
         const auto &bs = bp.second ;
@@ -158,11 +194,7 @@ cv::Mat Environment::renderState(const PushAction &a, const State &state) {
 }
 
 std::vector<string> Environment::getBoxNames() const {
-    vector<string> out ;
-    for( const auto &b: world_->boxes_ ) {
-        out.push_back(b->getName()) ;
-    }
-    return out ;
+    return world_->getBoxNames() ;
 }
 
 void Environment::runSim(float t) {
@@ -174,8 +206,12 @@ void Environment::runSim(float t) {
     }
 }
 
+float Environment::computeReward(const State &state) {
+    return 0 ;
+}
+
 std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector2f &c, float theta, int action_id) {
-    Vector3f hbox_size = world_->params_.box_sz_ ;
+    Vector3f hbox_size = world_->params().box_sz_ ;
     float w = hbox_size.x(), h = hbox_size.y() ;
     const vector<Pt> coords = {        { { w, -2 * h /3.0 }, { 1, 0} },
                                        { { w,  0          }, { 1, 0} },
@@ -190,8 +226,8 @@ std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector
                                        { { 0,          -h }, {0, -1} },
                                        { { 2 * w/3.0,  -h }, {0, -1} }
                                      };
-    float start_delta = world_->params_.motion_start_offset_ ;
-    float motion_length = world_->params_.motion_push_offset_ ;
+    float start_delta = world_->params().motion_start_offset_ ;
+    float motion_length = world_->params().motion_push_offset_ ;
     float height =  0.02 ;
   //  float height = hbox_size.z();
     const Pt &cc = coords[action_id] ;
