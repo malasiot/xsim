@@ -18,30 +18,9 @@ World::World(const Parameters &params): params_(params) {
     createMultiBodyDynamicsWorld();
     setGravity({0, 0, -10});
 
-    URDFRobot robot = URDFRobot::load(params.data_dir_ + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
-
-
-    for ( int i=0 ; i<6  ; i++) {
-        robot.setJointPosition(UR5IKSolver::ur5_joint_names[i], 0);
-    }
-    robot.setJointPosition("shoulder_lift_joint", -1.2);
-    robot.setJointPosition("elbow_joint", 0.7);
-    //    robot.setWorldTransform(Isometry3f(Translation3f{-0.1, -0.2, 0.65}));
-
     collisions_.reset(new CollisionSpace()) ;
-    collisions_->disableCollision("base_link", "table");
-    collisions_->disableCollision("shoulder_link", "table");
-    collisions_->addRobot(robot, 0.01) ;
 
-    iplan_.reset(new UR5Planning(robot, collisions_.get())) ;
-    planner_.reset(new Planner(iplan_.get())) ;
-
-    createScene(robot) ;
-
-    resetRobot() ;
-
-    vcol_= RobotScene::fromURDF(robot, true) ;
-
+    createScene() ;
 }
 
 std::map<string, Isometry3f> World::getBoxTransforms() const {
@@ -58,41 +37,13 @@ std::vector<string> World::getBoxNames() const {
     return names ;
 }
 
-void World::disableToolCollisions(const std::string &box) {
-    collisions_->disableCollision(box, "tool") ;
-}
-
-void World::enableToolCollisions(const std::string &box) {
-    collisions_->enableCollision(box, "tool") ;
-}
-
-void World::resetRobot() {
-    for ( int i=0 ; i<6  ; i++) {
-        robot_mb_->setJointPosition(UR5IKSolver::ur5_joint_names[i], 0);
-    }
-
-    robot_mb_->setJointPosition("shoulder_lift_joint", -1.2);
-    robot_mb_->setJointPosition("elbow_joint", 0.7);
-
-    JointState state ;
-    for ( int i=0 ; i<6  ; i++) {
-        double val = robot_mb_->getJointPosition(UR5IKSolver::ur5_joint_names[i]) ;
-        state.emplace(UR5IKSolver::ur5_joint_names[i], val) ;
-    }
-
-    stepSimulation(0.05) ;
-
-    map<string, Isometry3f> trs ;
-    robot_mb_->getLinkTransforms(trs);
-    iplan_->setStartState(state) ;
-}
 
 void World::reset() {
     for( int i=0 ; i<boxes_.size() ; i++ ) {
         boxes_[i]->setWorldTransform(orig_trs_[i]) ;
     }
 
-    resetRobot() ;
+//    resetRobot() ;
 }
 
 void World::updateCollisionEnv() {
@@ -100,43 +51,91 @@ void World::updateCollisionEnv() {
     collisions_->updateObjectTransforms(trs);
 }
 
-void World::createScene(const URDFRobot &robot) {
+bool World::plan(const Eigen::Vector3f &p1, const Eigen::Vector3f &p2, const std::string &box, Eigen::Isometry3f &orig, float &t1, float &t2) {
+    Vector3f dir = (p2 - p1).normalized() ;
+    float len = (p2 - p1).norm() ;
+    float theta = atan2(dir.y(), dir.x()) ;
+    orig.setIdentity() ;
+    orig.linear() = AngleAxisf(theta, Vector3f::UnitZ()).matrix() ;
+    orig.translation() = p1 ;
+    t1 = len ;
+    t2 = len - 0.01 ;
+
+    Isometry3f ctr = Isometry3f::Identity() ;
+    ctr.linear() = orig.linear() ;
+    ctr.translation() = (p1 + p2)/2.0 ;
+    CollisionShapePtr cshape(new BoxCollisionShape({len/2, 0.025, 0.025})) ;
+
+    collisions_->disableCollision("motion", box);
+    collisions_->addCollisionObject("motion", cshape, ctr);
+
+    bool has_collision = collisions_->hasCollision() ;
+
+    collisions_->removeCollisionObject("motion") ;
+    collisions_->enableCollision("motion", box);
+
+    if ( !has_collision ) {
+        cout << "ok" << endl ;
+    }
+    return !has_collision ;
+}
+
+void World::execute(const Eigen::Isometry3f &orig, float t1, float t2, float speed) {
+    pusher_->setBaseWorldTransform(orig) ;
+    Joint *ctrl =pusher_->findJoint("pusher_slider_joint") ;
+
+    ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(speed).setTargetPosition(t1));
+
+    while ( fabs(ctrl->getPosition() - t1) > 0.001 ) {
+        stepSimulation(0.05) ;
+    }
+
+    ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.5).setTargetPosition(t2));
+
+    while ( fabs(ctrl->getPosition() - t2) > 0.001 ) {
+        stepSimulation(0.05) ;
+    }
+
+    pusher_->setBaseWorldTransform(pusher_orig_) ;
+    ctrl->setPosition(0) ;
+
+    stepSimulation(0.05) ;
+
+
+}
+
+void World::createScene() {
     CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{params_.table_width_/2.0, params_.table_height_/2.0, 0.001})) ;
     table_cs->setMargin(0) ;
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
 
-    Isometry3f pusher_tr(Translation3f{0, 0.4, 0.05}) ;
+    pusher_orig_ = Isometry3f(Translation3f{0.0, -1.0, 0}) ;
 
 
      URDFRobot pusher = URDFRobot::load(params_.data_dir_ + "robots/pusher.urdf") ;
-     pusher_ = addMultiBody(MultiBodyBuilder(pusher)
+
+  /*   pusher_ = addMultiBody(MultiBodyBuilder(pusher)
                               .setName("pusher")
                               .setFixedBase()
                               .setMargin(0.01)
                               .setLinearDamping(0.f)
                               .setAngularDamping(0.f)
-                            .setWorldTransform(pusher_tr)
+                            .setWorldTransform(pusher_orig_)
                               ) ;
+*/
+     MultiBodyBuilder mb ;
 
-     Joint *ctrl = pusher_->findJoint("pusher_slider_joint") ;
-     ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.1).setTargetPosition(0.2));
+     mb.addLink("pusher_base", 0.0, nullptr, Isometry3f::Identity()) ;
+     mb.addLink("pusher_tool", 3.0, CollisionShapePtr(new BoxCollisionShape({0.02, 0.02, 0.02})), Isometry3f::Identity()).makeVisualShape({0, 0, 1, 1}) ;
 
+     Vector3f axis = {1, 0, 0} ;
+     mb.addJoint("pusher_slider_joint", xsim::PrismaticJoint, "pusher_base", "pusher_tool", Isometry3f::Identity())
+             .setAxis(axis).setLimits(0, 0.5)
+             .setFriction(0).setDamping(0) ;
 
+     pusher_ = addMultiBody(mb) ;
 
-    collisions_->disableCollision("table", "base_link");
     collisions_->addCollisionObject("table", table_cs, table_tr);
-
-    // ur5 + gripper
-    robot_mb_ = addMultiBody(MultiBodyBuilder(robot)
-                             .setName("robot")
-                             .setFixedBase()
-                             .setMargin(0.01)
-                             .setLinearDamping(0.f)
-                             .setAngularDamping(0.f)
-                             ) ;
-
-    resetRobot() ;
-
 
     table_rb_ = addRigidBody(RigidBodyBuilder()
                              .setCollisionShape(table_cs)
@@ -145,9 +144,6 @@ void World::createScene(const URDFRobot &robot) {
                              .setFriction(3.0)
                              .setWorldTransform(table_tr)
                              ) ;
-
-    controller_.reset(new Robot(this, robot_mb_)) ;
-
 
     CollisionShapePtr box_cs(new BoxCollisionShape(params_.box_sz_));
     box_cs->setMargin(0.0) ;
@@ -159,7 +155,6 @@ void World::createScene(const URDFRobot &robot) {
 
     float pallet_width = params_.grid_x_ * ( 2 * params_.box_sz_.x() )  + (params_.grid_x_ - 1 ) * gap ;
     float pallet_height = params_.grid_y_ * ( 2 * params_.box_sz_.y() )  + (params_.grid_y_ - 1 ) * gap ;
-
 
     Vector3f offset{params_.pallet_offset_x_ - pallet_width/2.0 + params_.box_sz_.x() , params_.pallet_offset_y_ - pallet_height/2.0 + params_.box_sz_.y(), 0} ;
 
@@ -192,7 +187,6 @@ void World::createScene(const URDFRobot &robot) {
 
             box_names.emplace_back(name) ;
         }
-
     }
 
     for( const auto &ba: box_names ) {
@@ -201,52 +195,6 @@ void World::createScene(const URDFRobot &robot) {
         }
     }
 
-
-}
-
-void World::coverage_analysis() {
-
-    ofstream strm("/tmp/coverage.ply") ;
-
-    vector<Vector3f> reachable, collision_free ;
-
-    for( float x = -params_.table_width_/2 + params_.table_offset_x_ ; x<= params_.table_width_/2 +  params_.table_offset_x_; x+=0.02 ) {
-        for( float y = 0 ; y<= 1; y+=0.02 ) {
-            for( float z = 0.02 ; z < 0.5 ; z += 0.01 ) {
-                JointState seed, solution ;
-                Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
-                Isometry3f p = Isometry3f::Identity() ;
-                p.linear() = m ;
-                p.translation() = Vector3f{x, y, z} ;
-
-                vector<JointState> solutions ;
-                if ( iplan()->solveIK(p, solutions)  ) {
-                    bool found = false ;
-                    for( int i=0 ; i<solutions.size() ; i++ ) {
-                        if ( iplan()->isStateValid(solutions[i]) ) {
-                            found = true ;
-
-                            break ;
-                        }
-                    }
-                    if ( !found ) collision_free.emplace_back(x, y, z) ;
-                }
-            }
-        }
-    }
-
-    strm << "ply\nformat ascii 1.0\n" ;
-    strm << "element vertex " << collision_free.size() + reachable.size() << endl ;
-    strm << "property float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\n";
-    strm << "end_header\n";
-
-    for( const auto &v: reachable ) {
-        strm << v.adjoint() << ' ' << "0 255 0\n" ;
-    }
-
-    for( const auto &v: collision_free ) {
-        strm << v.adjoint() << ' ' << "255 0 0\n" ;
-    }
 
 
 }

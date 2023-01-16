@@ -168,6 +168,8 @@ public:
 
     const Link *getLink(const std::string &name) const ;
 
+    void setBaseWorldTransform(const Eigen::Isometry3f &tr) ;
+
 private:
 
     friend class PhysicsWorld ;

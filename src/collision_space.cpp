@@ -86,6 +86,18 @@ CollisionSpace::~CollisionSpace() {
 
 }
 
+void CollisionSpace::removeCollisionObject(const std::string &name) {
+    assert(!name.empty());
+
+    auto it = objects_.find(name) ;
+    if ( it != objects_.end() ) {
+        auto &&data = it->second ;
+        btCollisionObject *obj = data->obj_.get() ;
+        world_->removeCollisionObject(obj) ;
+        objects_.erase(name);
+    }
+}
+
 void CollisionSpace::addCollisionObject(const std::string &name, const CollisionShapePtr &shape, const Isometry3f &tr) {
     assert(!name.empty());
 
@@ -192,9 +204,6 @@ CollisionShapePtr CollisionSpace::makeCollisionShape(const URDFGeometry *geom) {
 }
 
 bool CollisionSpace::hasCollision() {
-  //  broadphase_->calculateOverlappingPairs(dispatcher_.get());
-  //  btOverlappingPairCache* pair_cache = broadphase_->getOverlappingPairCache();
-  //  pair_cache->processAllOverlappingPairs(overlap_cb_.get(), dispatcher_.get());
 
     world_->performDiscreteCollisionDetection();
 

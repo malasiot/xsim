@@ -27,36 +27,27 @@ public:
     std::map<std::string, Eigen::Isometry3f> getBoxTransforms() const ;
     std::vector<std::string> getBoxNames() const ;
 
-    void disableToolCollisions(const std::string &box);
-    void enableToolCollisions(const std::string &box);
     void reset() ;
-    void resetRobot();
     void updateCollisionEnv() ;
 
-    Robot *controller() { return controller_.get() ; }
-    xsim::PlanningInterface *iplan() { return iplan_.get() ; }
-    Planner *planner() { return planner_.get() ; }
+    bool plan(const Eigen::Vector3f &p1, const Eigen::Vector3f &p2, const std::string &box, Eigen::Isometry3f &orig, float &t1, float &t2) ;
+    void execute(const Eigen::Isometry3f &orig, float t1, float t2, float speed) ;
+
     xsim::CollisionSpace *collisions() { return collisions_.get() ; }
     const Parameters &params() const { return params_ ; }
 
-    xviz::NodePtr collisionScene() const { return vcol_ ; }
-
-    void coverage_analysis();
+      xsim::MultiBodyPtr pusher_ ;
 private:
-    xsim::MultiBodyPtr robot_mb_ ;
     xsim::RigidBodyPtr table_rb_ ;
     std::vector<xsim::RigidBodyPtr> boxes_ ;
-    xsim::MultiBodyPtr pusher_ ;
-    std::vector<Eigen::Isometry3f> orig_trs_ ;
 
-    std::shared_ptr<Robot> controller_ ;
-    std::shared_ptr<xsim::PlanningInterface> iplan_ ;
+    std::vector<Eigen::Isometry3f> orig_trs_ ;
+    Eigen::Isometry3f pusher_orig_ ;
+
     std::shared_ptr<xsim::CollisionSpace> collisions_ ;
-    std::shared_ptr<Planner> planner_ ;
     Parameters params_ ;
-    xviz::NodePtr vcol_ ;
 
 private:
 
-    void createScene(const xsim::URDFRobot &robot);
+    void createScene();
 };

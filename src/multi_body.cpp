@@ -434,6 +434,10 @@ const Link *MultiBody::getLink(const string &name) const {
     else return nullptr ;
 }
 
+void MultiBody::setBaseWorldTransform(const Eigen::Isometry3f &tr) {
+     body_->setBaseWorldTransform(toBulletTransform(tr) * root_->local_inertial_frame_) ;
+}
+
 int MultiBody::getJointIndex(const string &name) const {
 
     const Joint *j = findJoint(name) ;
@@ -562,5 +566,6 @@ Isometry3f Link::getWorldTransform() const {
     btTransform tr = collider_->getWorldTransform();
     return toEigenTransform(tr) ;
 }
+
 
 }

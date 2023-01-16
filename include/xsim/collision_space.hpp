@@ -25,6 +25,7 @@ public:
 
     void updateObjectTransforms(const std::map<std::string, Eigen::Isometry3f> &trs);
     void enableCollision(const std::string &l1, const std::string &l2);
+    void removeCollisionObject(const std::string &name);
 private:
     std::unique_ptr<btBroadphaseInterface> broadphase_ ;
     std::unique_ptr<btCollisionDispatcher> dispatcher_ ;
