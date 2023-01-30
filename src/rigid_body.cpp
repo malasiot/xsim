@@ -67,6 +67,18 @@ void RigidBody::setCCDSweptSphereRadius(float r) {
     handle_->setCcdMotionThreshold(r / 2.);
 }
 
+void RigidBody::setLinearVelocity(const Eigen::Vector3f &v) {
+    handle_->setLinearVelocity(toBulletVector(v));
+}
+
+void RigidBody::setAngularVelocity(const Eigen::Vector3f &v) {
+    handle_->setAngularVelocity(toBulletVector(v));
+}
+
+void RigidBody::clearForces() {
+    handle_->clearForces();
+}
+
 void RigidBody::applyExternalForce(const Eigen::Vector3f &force, const Eigen::Vector3f &pos) {
     handle_->applyForce(toBulletVector(force), toBulletVector(pos));
 }

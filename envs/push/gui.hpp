@@ -6,6 +6,10 @@
 #include "world.hpp"
 #include "environment.hpp"
 
+#undef slots
+#include "trainer.hpp"
+#define slots Q_SLOTS
+
 #include <xsim/world.hpp>
 #include <xsim/collision.hpp>
 #include <xsim/ompl_planner.hpp>
@@ -25,34 +29,40 @@ class ExecuteEnvironmentThread: public QThread {
 
     Q_OBJECT
 public:
-    ExecuteEnvironmentThread(World *world): env_(world), world_(world) {
-        world_->setUpdateCallback([this]() {
+    ExecuteEnvironmentThread(Environment *env): env_(env) {
+        env_->world()->setUpdateCallback([this]() {
             emit updateScene();
         });
-
     }
 
     ~ExecuteEnvironmentThread() {
-        world_->setUpdateCallback(nullptr);
+        env_->world()->setUpdateCallback(nullptr);
     }
 
-
     void run() override {
+        using namespace std ;
+        std::vector<std::string> boxes = env_->getBoxNames() ;
 
-        std::vector<std::string> boxes = env_.getBoxNames() ;
+        int trial = 0 ;
+        while (1) {
+            State state = env_->getState() ;
 
-        for( int  i = 0 ; i<100 ; i++ ) {
-            State state = env_.getState() ;
+#if 0
+
             PushAction a ;
             a.box_id_ = rng_.choice(boxes) ; ;
             a.loc_ = rng_.uniform(0, 11) ;
-            cv::Mat im = env_.renderState(a, state) ;
-            cv::imwrite("/tmp/state.png", im) ;
-            cv::imwrite(cvx::format("/tmp/state_{:03d}.png", i), im) ;
-            auto res = env_.transition(state, a) ;
+            cv::Mat im = env_->renderState(a, state) ;
+            cv::imwrite(cvx::format("/tmp/state_{:03d}.png", trial++), im) ;
+            auto res = env_->transition(state, a) ;
 
-            const State &new_state =  res.first ;
-            if ( new_state.isTerminal() ) break ;
+            cout << res.first << ' ' << res.second << endl ;
+
+            if ( res.first.isTerminal() ) {
+                env_->reset() ;
+                trial = 0 ;
+            }
+#endif
         }
     }
 
@@ -61,27 +71,54 @@ signals:
     void showTrajectory(const xsim::JointTrajectory &) ;
 protected:
 
-    World *world_ ;
-    Environment env_ ;
+    Environment *env_ ;
     cvx::RNG rng_ ;
 
 
 };
 
+class TrainingThread: public QThread {
+
+    Q_OBJECT
+public:
+    TrainingThread(Trainer *trainer): trainer_(trainer) {
+        trainer_->agent()->env()->world()->setUpdateCallback([this]() {
+            emit updateScene();
+        });
+    }
+
+    ~TrainingThread() {
+        trainer_->agent()->env()->world()->setUpdateCallback(nullptr);
+    }
+
+    void run() override {
+        try {
+        trainer_->train(100000);
+        } catch (c10::Error &e) {
+            std::cout << e.what() << std::endl ;
+        }
+    }
+
+signals:
+    void updateScene();
+
+protected:
+
+    Trainer *trainer_ ;
+
+};
+
+
 
 class GUI: public SimulationGui {
     Q_OBJECT
 public:
-    GUI(World *world);
+    GUI(xsim::PhysicsWorld *e);
 
     void onUpdate(float delta) override;
 
 private:
 
-    World *world_ ;
-
-protected:
-    void runenv();
 };
 
 

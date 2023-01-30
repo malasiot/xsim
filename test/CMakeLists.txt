@@ -44,7 +44,13 @@ add_executable(test_manipulator
     bullet_gui.hpp
     ur5_ik_solver.cpp
     ur5_ik_solver.hpp
+    world.cpp
+    world.hpp
 
+    planner.cpp
+    planner.hpp
+    planning_interface.cpp
+    planning_interface.hpp
     gui.cpp
     gui.hpp
     robot.cpp

@@ -158,6 +158,10 @@ public :
 
     void setContactProcessingThreshold(float t);
     void setCCDSweptSphereRadius(float r);
+
+    void setLinearVelocity(const Eigen::Vector3f &v) ;
+    void setAngularVelocity(const Eigen::Vector3f &v) ;
+    void clearForces() ;
 private:
 
     RigidBody(const RigidBodyBuilder &rb) ;

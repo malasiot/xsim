@@ -39,11 +39,22 @@ std::vector<string> World::getBoxNames() const {
 
 
 void World::reset() {
+
     for( int i=0 ; i<boxes_.size() ; i++ ) {
         boxes_[i]->setWorldTransform(orig_trs_[i]) ;
+        boxes_[i]->setLinearVelocity({0, 0, 0}) ;
+        boxes_[i]->setAngularVelocity({0, 0, 0}) ;
+        boxes_[i]->clearForces() ;
+        boxes_[i]->disableDeactivation();
     }
 
-//    resetRobot() ;
+    Joint *ctrl =pusher_->findJoint("pusher_slider_joint") ;
+    ctrl->setMotorControl(MotorControl(VELOCITY_CONTROL).setTargetVelocity(0.0).setMaxForce(1000));
+    stepSimulation(0.05) ;
+
+    updateCollisionEnv();
+
+    resetSimulation();
 }
 
 void World::updateCollisionEnv() {
@@ -55,11 +66,14 @@ bool World::plan(const Eigen::Vector3f &p1, const Eigen::Vector3f &p2, const std
     Vector3f dir = (p2 - p1).normalized() ;
     float len = (p2 - p1).norm() ;
     float theta = atan2(dir.y(), dir.x()) ;
+
     orig.setIdentity() ;
     orig.linear() = AngleAxisf(theta, Vector3f::UnitZ()).matrix() ;
     orig.translation() = p1 ;
     t1 = len ;
     t2 = len - 0.01 ;
+
+//    Vector3f a = (orig * Vector4f{len, 0, 0, 1}).head<3>() ;
 
     Isometry3f ctr = Isometry3f::Identity() ;
     ctr.linear() = orig.linear() ;
@@ -74,9 +88,6 @@ bool World::plan(const Eigen::Vector3f &p1, const Eigen::Vector3f &p2, const std
     collisions_->removeCollisionObject("motion") ;
     collisions_->enableCollision("motion", box);
 
-    if ( !has_collision ) {
-        cout << "ok" << endl ;
-    }
     return !has_collision ;
 }
 
@@ -112,7 +123,7 @@ void World::createScene() {
     pusher_orig_ = Isometry3f(Translation3f{0.0, -1.0, 0}) ;
 
 
-     URDFRobot pusher = URDFRobot::load(params_.data_dir_ + "robots/pusher.urdf") ;
+   //  URDFRobot pusher = URDFRobot::load(params_.data_dir_ + "robots/pusher.urdf") ;
 
   /*   pusher_ = addMultiBody(MultiBodyBuilder(pusher)
                               .setName("pusher")
@@ -151,7 +162,7 @@ void World::createScene() {
     CollisionShapePtr box_cs2(new BoxCollisionShape(params_.box_sz_));
     box_cs2->setMargin(0.02) ;
 
-    float gap = 0.0001 ;
+    float gap = 0.001 ;
 
     float pallet_width = params_.grid_x_ * ( 2 * params_.box_sz_.x() )  + (params_.grid_x_ - 1 ) * gap ;
     float pallet_height = params_.grid_y_ * ( 2 * params_.box_sz_.y() )  + (params_.grid_y_ - 1 ) * gap ;
@@ -163,6 +174,8 @@ void World::createScene() {
         for( int j=0 ; j<params_.grid_x_ ; j++ ) {
             Vector3f c{j * ( params_.box_sz_.x() * 2 + gap ), i * (params_.box_sz_.y() * 2 + gap), params_.box_sz_.z()} ;
             Isometry3f box_tr(Translation3f{c + offset}) ;
+
+          //  box_tr.linear() = AngleAxisf(M_PI*10/180.0, Vector3f::UnitZ()).matrix() ;
 
             string name = cvx::format("box_{}_{}", i, j) ;
 
@@ -197,4 +210,19 @@ void World::createScene() {
 
 
 
+}
+
+World::Parameters::Parameters(const cvx::Variant &config) {
+    config.lookup("table.size.x", table_width_) ;
+    config.lookup("table.size.y", table_height_) ;
+    config.lookup("table.offset.x", table_offset_x_) ;
+    config.lookup("table.offset.y", table_offset_y_) ;
+
+    config.lookup("pallet.offset.x", pallet_offset_x_) ;
+    config.lookup("pallet.offset.y", pallet_offset_y_) ;
+    config.lookup("boxes.grid.rows", grid_y_ ) ;
+    config.lookup("boxes.grid.cols", grid_x_ ) ;
+    config.lookup("boxes.size.x", box_sz_.x() ) ;
+    config.lookup("boxes.size.y", box_sz_.y() ) ;
+    config.lookup("boxes.size.z", box_sz_.z() ) ;
 }

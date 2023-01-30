@@ -16,22 +16,13 @@ using namespace xviz ;
 using namespace xsim ;
 using namespace Eigen ;
 
-GUI::GUI(World *w):
-    SimulationGui(w), world_(w) {
-
-    physics_->stepSimulation(0.005);
+GUI::GUI(xsim::PhysicsWorld *world):
+    SimulationGui(world) {
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
-    runenv() ;
+ //   runenv() ;
 
-}
-
-void GUI::runenv() {
-    ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread(world_) ;
-    connect(workerThread, &ExecuteEnvironmentThread::updateScene, this, [this]() { update();});
-    connect(workerThread, &ExecuteEnvironmentThread::finished, workerThread, [workerThread](){ delete workerThread ;});
-    workerThread->start();
 }
 
 

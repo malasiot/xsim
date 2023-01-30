@@ -261,6 +261,13 @@ void PhysicsWorld::createSoftMultiBodyDynamicsWorld()
 
 }
 
+void PhysicsWorld::resetSimulation() {
+    solver_->reset();
+    dynamics_world_->clearForces();
+    broadphase_->resetPool(dispatcher_.get());
+
+}
+
 PhysicsWorld::~PhysicsWorld()
 {
 }

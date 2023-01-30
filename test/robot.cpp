@@ -16,167 +16,107 @@ static vector<string> arm_joint_names = {
     "wrist_3_joint"
 };
 
-static const char *gripper_roll = "wrist_3_joint" ;
-static const char *mimic_joint_names[] = {
-    "robotiq_85_right_knuckle_joint",
-    "robotiq_85_left_inner_knuckle_joint",
-    "robotiq_85_right_inner_knuckle_joint",
-    "robotiq_85_left_finger_tip_joint",
-    "robotiq_85_right_finger_tip_joint"
-};
 
-static const char *gripper_main_control_joint_name = "robotiq_85_left_knuckle_joint";
+void Robot::executeTrajectory(const JointTrajectory &traj, float speed) {
+    if ( stcb_ )
+        stcb_(traj) ;
 
+    for( int i=0 ; i<traj.points().size()-1 ; i++ ) {
+        const auto &t1 = traj.points()[i] ;
+        const auto &t2 = traj.points()[i+1] ;
 
-void ik(MultiBody &body, const Isometry3f &ee) {
+        cout << t1 << ' ' << t2 << endl ;
+        move(t1, t2, speed) ;
+        while (1) {
+            world_->stepSimulation(0.05);
 
+            auto state = getJointState() ;
 
-    JointState seed, j ;
-    for( uint i=0 ; i<6 ; i++ ) {
-        double pos = body.getJointPosition(arm_joint_names[i]);
-        seed[arm_joint_names[i]] = pos ;
-    }
+            bool changed = false ;
+            for( const auto &sp: state ) {
+                float start_v = t2.find(sp.first)->second;
+                float v = state[sp.first] ;
 
-    UR5IKSolver solver ;
-    if ( solver.solve(ee, seed, j) ) {
-        for( const auto &s: j ) {
-            Joint *ctrl = body.findJoint(s.first) ;
-            ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(s.second));
-            // body.setTargetPosition(arm_joint_names[i], j[i]) ;
+                if ( fabs(v - start_v) > 0.01 ) {
+                    changed = true ;
+                    break ;
+                }
+            }
+
+            if ( !changed ) {
+                stop() ;
+                break ;
+            }
         }
     }
 }
 
+void Robot::move(const JointState &start_state, const JointState &end_state, float speed) {
 
+    double max_delta = 0.0 ;
 
+    // find the largest movement
 
-void Robot::openGripper() {
-
-    Joint *ctrl = controller_->findJoint(gripper_main_control_joint_name) ;
-
-    MotorControl params(POSITION_CONTROL) ;
-    params.setMaxVelocity(1.5);
-    params.setMaxForce(0.1) ;
-    params.setTargetPosition(0.001) ;
-    ctrl->setMotorControl(params);
-
-    for( Joint *mimic: ctrl->getMimicJoints()) {
-        params.setTargetPosition(mimic->getMimicMultiplier() * 0.001) ;
-        mimic->setMotorControl(params);
+    for( const auto &jn: arm_joint_names ) {
+        double v1 = start_state.find(jn)->second ;
+        double v2 = end_state.find(jn)->second ;
+        double delta = fabs(v1 - v2) ;
+        if ( delta > max_delta ) {
+            max_delta = delta ;
+        }
     }
 
-}
-
-void Robot::closeGripper() {
-    Joint *ctrl = controller_->findJoint(gripper_main_control_joint_name) ;
-
-    MotorControl params(POSITION_CONTROL) ;
-    params.setMaxVelocity(1.5);
-    params.setMaxForce(0.1) ;
-    params.setTargetPosition(0.8) ;
-    ctrl->setMotorControl(params);
-
-    for( Joint *mimic: ctrl->getMimicJoints()) {
-        params.setTargetPosition(mimic->getMimicMultiplier() * 0.8) ;
-        mimic->setMotorControl(params);
-    }
-
-}
-
-bool Robot::plan(const Eigen::Isometry3f &target, JointTrajectory &traj)
-{
-    JointSpacePlanner planner(iplan_.get()) ;
-    return planner.solve(target, traj) ;
-}
-
-bool Robot::planRelative(const Eigen::Vector3f &dp, xsim::JointTrajectory &traj) {
-
-    JointState start_state ;
-    getJointState(start_state) ;
-
-    iplan_->setStartState(start_state) ;
-    Isometry3f pose = iplan_->getToolPose(start_state) ;
-
-    Vector3f c0 = pose.translation() ;
-    auto r0 = pose.linear() ;
-    auto euler = r0.eulerAngles(0, 1, 2);
-    Vector3f c1 = c0 + dp ;
-
-    Isometry3f target_pose ;
-    target_pose.setIdentity() ;
-    target_pose.linear() = r0 ;
-    target_pose.translation() = c1 ;
-
-    // setup the goal region
-
-    BoxShapedRegion goal(c1, {0.01, 0.01, 0.01}, euler, {0.05, 0.05, 0.05}) ;
-    MoveRelativeTaskSpace ts(pose, dp, 0.001, { 0.05, 0.05, 0.05}) ;
-
-    TaskSpacePlanner planner(iplan_.get()) ;
-    return planner.solve(goal, ts, traj);
-}
-
-void Robot::executeTrajectory() {
-    moveTo(traj_.points().back()) ;
-}
-
-void Robot::moveTo(const JointState &target)
-{
-    target_state_ = target ;
     for( const auto &jn: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(jn) ;
-        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(0.9).setTargetPosition(target_state_[jn]));
+
+        double v1 = start_state.find(jn)->second ;
+        double v2 = end_state.find(jn)->second ;
+        double delta = fabs(v1 - v2) ;
+
+        // scale motor speeds so that all motors arrive to their target at the same time
+        double j_speed = speed * delta / max_delta ;
+        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(j_speed).setTargetPosition(v2));
     }
 }
 
-void Robot::moveTo(const Eigen::Isometry3f &target) {
-    JointState j ;
-    if ( ik(target, j) ) {
-       moveTo(j) ;
-    }
+void Robot::moveTo(const JointState &target, float speed) {
+    JointState start_state = getJointState() ;
+    move(start_state, target, speed) ;
 }
 
-void Robot::setJointState(const std::string &name, float v)
-{
+
+void Robot::setJointState(const std::string &name, float v) {
     controller_->setJointPosition(name, v) ;
- }
+}
 
 void Robot::setJointState(const JointState &state) {
-
+    for( const auto &jn: arm_joint_names ) {
+        auto it = state.find(jn) ;
+        if ( it != state.end() )
+            controller_->setJointPosition(jn, it->second);
+    }
 }
 
-void Robot::getJointState(JointState &state) {
+JointState Robot::getJointState() const {
+    JointState state ;
     for( const auto &jn: arm_joint_names ) {
         double v = controller_->getJointPosition(jn) ;
         state.emplace(jn, v) ;
     }
+    return state ;
 }
 
-void Robot::stop()
-{
+void Robot::stop() {
     JointState state ;
     for( const auto &j: arm_joint_names ) {
         Joint *ctrl = controller_->findJoint(j) ;
         ctrl->setMotorControl(MotorControl(VELOCITY_CONTROL).setTargetVelocity(0.0).setMaxForce(1000));
         state.emplace(j, ctrl->getPosition()) ;
-        // body.setTargetPosition(arm_joint_names[i], j[i]) ;
     }
-
-    iplan_->setStartState(state) ;
+    for( int i=0 ; i<10 ; i++ )
+        world_->stepSimulation(0.05);
 }
 
-const std::vector<string> &Robot::armJointNames() const
-{
+const std::vector<string> &Robot::armJointNames() const {
     return arm_joint_names ;
-}
-
-bool Robot::ik(const Isometry3f &target, JointState &j) {
-    JointState seed ;
-    for( uint i=0 ; i<6 ; i++ ) {
-        double pos = controller_->getJointPosition(arm_joint_names[i]);
-        seed[arm_joint_names[i]] = pos ;
-    }
-
-    UR5IKSolver solver ;
-    return  solver.solve(target, seed, j) ;
 }

@@ -354,7 +354,7 @@ typedef std::pair<int, double> idx_double;
 bool comparator(const idx_double& l, const idx_double& r)
 { return l.second < r.second; }
 
-static void getJointState(const JointState &src, double s[]) {
+static void getJointState(const xsim::JointState &src, double s[]) {
     for( int i=0 ; i<6 ; i++ ) {
         auto it = src.find(UR5IKSolver::ur5_joint_names[i]) ;
         assert(it != src.end()) ;
@@ -362,12 +362,12 @@ static void getJointState(const JointState &src, double s[]) {
     }
 }
 
-static void setJointState(const vector<double> &s, JointState &dst ) {
+static void setJointState(const vector<double> &s, xsim::JointState &dst ) {
     for( int i=0 ; i<6 ; i++ ) {
         dst.emplace(UR5IKSolver::ur5_joint_names[i], s[i]) ;
     }
 }
-bool UR5IKSolver::solve(const Eigen::Isometry3f &target, vector<JointState> &solutions)
+bool UR5IKSolver::solve(const Eigen::Isometry3f &target, vector<xsim::JointState> &solutions)
 {
     Matrix4d mat = target.matrix().cast<double>() ;
 
@@ -424,7 +424,7 @@ bool UR5IKSolver::solve(const Eigen::Isometry3f &target, vector<JointState> &sol
     if ( q_valid_sols.empty() ) return false;
 
     for( const auto &sol: q_valid_sols ) {
-        JointState state ;
+        xsim::JointState state ;
         setJointState(sol, state) ;
         solutions.emplace_back(state) ;
     }
@@ -433,14 +433,14 @@ bool UR5IKSolver::solve(const Eigen::Isometry3f &target, vector<JointState> &sol
     return true ;
 }
 
-double jvalue(const JointState &s, const std::string &name) {
+double jvalue(const xsim::JointState &s, const std::string &name) {
     auto it = s.find(name) ;
     assert(it != s.end()) ;
     return it->second ;
 }
-bool UR5IKSolver::solve(const Eigen::Isometry3f &target, const JointState &seed, JointState &solution)
+bool UR5IKSolver::solve(const Eigen::Isometry3f &target, const xsim::JointState &seed, xsim::JointState &solution)
 {
-    vector<JointState> solutions ;
+    vector<xsim::JointState> solutions ;
     if ( !solve(target, solutions) ) return false ;
 
     // use weighted absolute deviations to determine the solution closest the seed state

@@ -1,6 +1,10 @@
 #include "gui.hpp"
 #include "robot.hpp"
 #include "mainwindow.hpp"
+#include "planning_interface.hpp"
+
+#include <xviz/scene/node_helpers.hpp>
+
 #include <iostream>
 
 #include <QTimer>
@@ -11,64 +15,83 @@ using namespace xviz ;
 using namespace xsim ;
 using namespace Eigen ;
 
-GUI::GUI(PhysicsWorld &physics, Robot &robot):
-    SimulationGui(physics), robot_(robot) {
-
+GUI::GUI(World *w): SceneViewer(w->getVisual()),
+     world_(w) {
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
-    auto world = physics.getVisual() ;
+    auto world = w->getVisual() ;
     auto robot_node = world->findNodeByName("base_link") ;
 
-    //    physics.setCollisionFeedback(this);
+    traj_node_.reset(new Node) ;
+     for( int i=0 ;i<100 ; i++ ) {
+         traj_points_[i] =xviz::NodeHelpers::makeSphere(0.01, Vector4f(0, 0, 1, 1));
+         traj_node_->addChild(traj_points_[i]) ;
+     }
+ #if 0
+     scene_->children()[0]->setVisible(false);
 
-    Quaternionf rot{0, -1, 0, 1};
-    rot.normalize() ;
+     auto cs = world_->collisionScene() ;
+     KinematicModel &fk = static_cast<UR5Planning *>(world_->iplan())->fk() ;
 
-    Isometry3f pose ;
-    pose.setIdentity() ;
-    pose.linear() = rot.matrix() ;
-    pose.translation() = Vector3f{ 0.25, 0.25, 0.2} ;
+     fk.setJointState(world_->controller()->getJointState()) ;
+     map<string , Isometry3f> trs = fk.getLinkTransforms();
+     cs->updateTransforms(trs);
 
- //   robot_.openGripper() ;
+     cout << trs["upper_arm_link"].matrix() << endl ;
 
-    Vector3f ik_center(0, 0, 0.2) ;
+     scene_->addChild(world_->collisionScene()) ;
+ #endif
+     scene_->addChild(traj_node_) ;
+     traj_node_->setVisible(false) ;
+     //    physics.setCollisionFeedback(this);
 
-    target_.reset(new Node) ;
-    target_->setTransform(Isometry3f(Translation3f(ik_center))) ;
-    GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
-    PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
-    MaterialPtr mat(material) ;
-    target_->addDrawable(geom, mat) ;
-    robot_node->addChild(target_) ;
+     Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
 
-    texec_ = new TrajectoryExecutionManager(&robot_, this) ;
-    QObject::connect(texec_, &TrajectoryExecutionManager::robotStateChanged, this, &GUI::updateControls);
-    QObject::connect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative) ;
+     target_.reset(new Node) ;
+     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
+     PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
+     MaterialPtr mat(material) ;
+     target_->addDrawable(geom, mat) ;
+     robot_node->addChild(target_) ;
+
+     gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
+     gizmo_->gizmo()->show(true) ;
+     gizmo_->gizmo()->setOrder(2) ;
+
+     gizmo_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
+         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
+             Isometry3f p = Isometry3f::Identity() ;
+             p.translation() = f.translation()  ;
+             p.linear() = m ;
+
+             cout << p.translation().adjoint() << endl ;
+             JointTrajectory traj ;
+             if ( world_->planner()->plan(world_->controller()->getJointState(), p, traj) ) {
+                 trajectory(traj) ;
+             }
+ #if 0
+             vector<JointState> solutions ;
+
+            if ( world_->iplan()->solveIK(p, solutions) ) {
+                for( const auto solution: solutions ) {
+                    if ( world_->iplan()->isStateValid(solution) ) {
+                         world_->controller()->setJointState(solution) ;
+                         world_->stepSimulation(0.05);
+                         break ;
+                    }
+                }
+            } else  return ;
+ #endif
+ return ;
+         } else if ( e == TRANSFORM_MANIP_MOVING ) {
+    //          cout << f.translation().adjoint() << endl ;
+          }
 
 
-    gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
-    gizmo_->gizmo()->show(true) ;
-    gizmo_->gizmo()->setOrder(2) ;
 
-    gizmo_->setCallback([this, rot](TransformManipulatorEvent e, const Affine3f &f) {
-        if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
-            Isometry3f p = Isometry3f::Identity() ;
-            p.translation() = f.translation()  ;
-            p.linear() = rot.matrix() ;
-            robot_.getJointState(start_state_) ;
+      });
 
-            //robot_.moveTo(p) ;//ik(*robot_mb, Isometry3f(  p.matrix()), M_PI/4) ;
-            JointTrajectory traj ;
-            if ( robot_.plan(p, traj) ) {
-                texec_->execute(traj) ;
-            }
-
-        } else if ( e == TRANSFORM_MANIP_MOVING ) {
-  //          cout << f.translation().adjoint() << endl ;
-        }
-
-    });
 
     gizmo_->attachTo(target_.get());
     gizmo_->setLocalTransform(true);
@@ -78,7 +101,7 @@ GUI::GUI(PhysicsWorld &physics, Robot &robot):
 }
 
 void GUI::onUpdate(float delta) {
-    SimulationGui::onUpdate(delta) ;
+    SceneViewer::onUpdate(delta) ;
     //     vector<ContactResult> results ;
     //    physics.contactPairTest(target_, table_mb->getLink("baseLink"), 0.01, results) ;
 }
@@ -92,7 +115,7 @@ void GUI::keyPressEvent(QKeyEvent *event) {
         gizmo_->setLocalTransform(true) ;
     else if ( event->key() == Qt::Key_G )
         gizmo_->setLocalTransform(false) ;
-    else SimulationGui::keyPressEvent(event) ;
+    else SceneViewer::keyPressEvent(event) ;
 
     update() ;
 
@@ -104,7 +127,7 @@ void GUI::mousePressEvent(QMouseEvent *event) {
         return ;
     }
 
-    SimulationGui::mousePressEvent(event) ;
+    SceneViewer::mousePressEvent(event) ;
 }
 
 void GUI::mouseReleaseEvent(QMouseEvent *event) {
@@ -113,7 +136,7 @@ void GUI::mouseReleaseEvent(QMouseEvent *event) {
         return ;
     }
 
-    SimulationGui::mouseReleaseEvent(event) ;
+    SceneViewer::mouseReleaseEvent(event) ;
 }
 
 void GUI::mouseMoveEvent(QMouseEvent *event) {
@@ -122,7 +145,7 @@ void GUI::mouseMoveEvent(QMouseEvent *event) {
         return ;
     }
 
-    SimulationGui::mouseMoveEvent(event) ;
+    SceneViewer::mouseMoveEvent(event) ;
 }
 
 void GUI::processContact(ContactResult &r) {
@@ -134,7 +157,7 @@ void GUI::processContact(ContactResult &r) {
 void GUI::changeControlValue(const std::string &jname, float v) {
     cout << jname << ' ' << v << endl ;
     //robot_mb->setJointPosition(jname, v) ;
-    robot_.setJointState(jname, v) ;
+    world_->controller()->setJointState(jname, v) ;
 }
 
 void GUI::updateControls(const JointState &state)
@@ -142,51 +165,28 @@ void GUI::updateControls(const JointState &state)
    update() ;
 }
 
-void GUI::moveRelative() {
-    JointTrajectory traj ;
-        if ( robot_.planRelative({0.2, 0, 0}, traj) ) {
-            texec_->execute(traj) ;
 
-            QObject::disconnect(texec_, &TrajectoryExecutionManager::trajectoryExecuted, this, &GUI::moveRelative);
-        }
+void GUI::trajectory(const JointTrajectory &traj) {
+    showTrajectory(traj);
+    if ( traj_thread_ ) return ;
 
+    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(world_, traj) ;
+    connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
+    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){ delete traj_thread_ ; traj_thread_ = nullptr;});
+    workerThread->start();
+    traj_thread_ = workerThread ;
 }
 
-void TrajectoryExecutionManager::timerTicked()
-{
+void GUI::showTrajectory(const xsim::JointTrajectory &traj) {
 
-    JointState state ;
-    robot_->getJointState(state) ;
-
-    const auto &target = traj_.points().back() ;
-
-    bool changed = false ;
-    for( const auto &sp: state ) {
-        float start_v = target.find(sp.first)->second;
-        float v = state[sp.first] ;
-
-        if ( fabs(v - start_v) > 0.01 ) {
-            changed = true ;
-            break ;
-        }
-    }
-    emit robotStateChanged(state) ;
-
-    if ( !changed ) {
-        timer_.stop() ;
-        robot_->stop() ;
-        emit trajectoryExecuted();
+    for( int i=0 ; i<100 ; i++ ) {
+        float t = i/100.0f ;
+        JointState state = traj.getState(t, world_->iplan()) ;
+        auto pose = world_->iplan()->getToolPose(state) ;
+        Isometry3f tp = Isometry3f::Identity() ;
+        tp.translation() = pose.translation() ;
+        traj_points_[i]->setTransform(tp) ;
     }
 
-
-}
-
-void TrajectoryExecutionManager::execute(const xsim::JointTrajectory &traj)
-{
-    traj_ = traj ;
-    timer_.setInterval(100) ;
-    connect(&timer_, &QTimer::timeout, this, &TrajectoryExecutionManager::timerTicked);
-
-    timer_.start() ;
-    robot_->moveTo(traj_.points().back());
+    traj_node_->setVisible(true) ;
 }

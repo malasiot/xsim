@@ -39,6 +39,8 @@ public:
     void createSoftBodyDynamicsWorld() ;
     void createSoftMultiBodyDynamicsWorld() ;
 
+    void resetSimulation() ;
+
     btDynamicsWorld* getDynamicsWorld();
 
     xviz::NodePtr getVisual() const { return visual_ ; }

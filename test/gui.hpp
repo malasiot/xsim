@@ -2,6 +2,7 @@
 #define GUI_HPP
 
 #include "bullet_gui.hpp"
+#include "world.hpp"
 #include "robot.hpp"
 
 #include <xsim/world.hpp>
@@ -10,35 +11,52 @@
 #include <xviz/scene/node.hpp>
 #include <xviz/gui/manipulator.hpp>
 
-#include <QTimer>
+#include <QThread>
 
-class TrajectoryExecutionManager: public QObject {
+class ExecuteTrajectoryThread: public QThread {
+
     Q_OBJECT
 public:
-    TrajectoryExecutionManager(Robot *robot,  QObject *parent = nullptr): QObject(parent), robot_(robot) {}
+    ExecuteTrajectoryThread(World *world, const xsim::JointTrajectory &traj): world_(world), traj_(traj) {
+        world_->setUpdateCallback([this]() {
+            update() ;
 
-    void execute(const xsim::JointTrajectory &traj) ;
+        });
+    }
 
+    ~ExecuteTrajectoryThread() {
+        world_->setUpdateCallback(nullptr);
+    }
 
-
-public slots:
-
-    void timerTicked();
+    void update() {
+        emit updateScene();
+    }
+    void run() override {
+      world_->controller()->executeTrajectory(traj_, 0.5);
+#if 0
+        for( int i=0 ; i<1000 ; i++ ) {
+            float t = i/1000.0 ;
+            auto j = traj_.getState(t, world_->controller_->iplan_) ;
+            world_->controller_->setJointState(j) ;
+            world_->stepSimulation(0.05) ;
+        }
+#endif
+    }
 
 signals:
-    void trajectoryExecuted() ;
-    void robotStateChanged(const xsim::JointState &state) ;
-private:
+    void updateScene();
+protected:
 
+    World *world_ ;
     xsim::JointTrajectory traj_ ;
-    Robot *robot_ ;
-    QTimer timer_ ;
+
+
 };
 
-class GUI: public SimulationGui, xsim::CollisionFeedback {
+class GUI: public xviz::SceneViewer, xsim::CollisionFeedback {
     Q_OBJECT
 public:
-    GUI(xsim::PhysicsWorld &physics, Robot &rb);
+    GUI(World *world);
 
     void openGripper();
 
@@ -56,19 +74,19 @@ public:
 
     void processContact(xsim::ContactResult &r) override;
 
+    void trajectory(const xsim::JointTrajectory &traj);
 private:
     std::shared_ptr<xviz::TransformManipulator> gizmo_;
     xviz::NodePtr target_ ;
-    Robot &robot_ ;
-    QTimer timer_ ;
-    JointState start_state_ ;
-    TrajectoryExecutionManager *texec_ ;
+    World *world_ ;
+    xviz::NodePtr traj_node_, traj_points_[100] ;
+    ExecuteTrajectoryThread *traj_thread_ = nullptr ;
 
-
+    void showTrajectory(const xsim::JointTrajectory &traj);
 public slots:
     void changeControlValue(const std::string &jname, float v);
     void updateControls(const xsim::JointState &state) ;
-    void moveRelative();
+
 };
 
 

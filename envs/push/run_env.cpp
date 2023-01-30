@@ -27,6 +27,7 @@
 #include "environment.hpp"
 
 #include "gui.hpp"
+
 #include "world.hpp"
 
 cvx::RNG rng ;
@@ -45,32 +46,24 @@ int main(int argc, char **argv)
     // load URDFs
     string path = "/home/malasiot/source/xsim/data/" ;
 
-    World::Parameters params ;
-    params.data_dir_ = path ;
+    auto params = cvx::Variant::fromConfigFile(path + "/envs/push.cfg") ;
 
-    World *world = new World(params) ;
+    std::unique_ptr<World> world(new World(params["world"])) ;
+    std::unique_ptr<Environment> env(new Environment(params["environment"], world.get())) ;
+    std::unique_ptr<DQNAgent> agent(new DQNAgent(env.get(), params["agent"])) ;
+    std::unique_ptr<Trainer> trainer(new Trainer(agent.get(), params["trainer"]));
 
- //   world->coverage_analysis() ;
+    GUI *gui = new GUI(world.get()) ;
 #if 0
-    Environment env(world) ;
-
-    vector<string> boxes = env.getBoxNames() ;
-
-    for( int  i = 0 ; i<100 ; i++ ) {
-        State state = env.getState() ;
-        PushAction a ;
-        a.box_id_ = rng.choice(boxes) ; ;
-        a.loc_ = rng.uniform(0, 11) ;
-        cv::Mat im = env.renderState(a, state) ;
-        cv::imwrite("/tmp/state.png", im) ;
-        cv::imwrite(cvx::format("/tmp/state_{:03d}.png", i), im) ;
-        if ( !env.apply(state, a) ) continue ;
-        break;
-
-    }
+    ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread(env.get()) ;
+    QObject::connect(workerThread, &ExecuteEnvironmentThread::updateScene, gui, [gui]() { gui->update();});
+    QObject::connect(workerThread, &ExecuteEnvironmentThread::finished, workerThread, [workerThread](){ delete workerThread ;});
+workerThread->start();
 #endif
-    GUI *gui = new GUI(world) ;
-
+    TrainingThread *workerThread = new TrainingThread(trainer.get()) ;
+    QObject::connect(workerThread, &TrainingThread::updateScene, gui, [gui]() { gui->update();});
+    QObject::connect(workerThread, &TrainingThread::finished, workerThread, [workerThread](){ delete workerThread ;});
+    workerThread->start() ;
 
     MainWindow window ;
     window.setGui(gui) ;
@@ -79,6 +72,4 @@ int main(int argc, char **argv)
     window.show() ;
     return app.exec();
 
-
-    delete world ;
 }
