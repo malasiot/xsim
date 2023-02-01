@@ -25,6 +25,21 @@ GUI::GUI(xsim::PhysicsWorld *world):
 
 }
 
+void GUI::setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius)
+{
+    auto target = physics_->findRigidBody(box) ;
+    NodePtr tnode = target->visual() ;
+
+    PhongMaterial *mat = static_cast<PhongMaterial *>(tnode->drawables()[0].material().get()) ;
+    mat->setDiffuseColor({0.7, 0.2, 0.2}) ;
+
+
+    NodePtr circle = NodeHelpers::makeCircle({pos.x(), pos.y(), 0.01}, {0, 0, 1}, radius, {1, 0, 0}) ;
+
+    scene_->addChild(circle) ;
+
+}
+
 
 void GUI::onUpdate(float delta) {
     SimulationGui::onUpdate(delta) ;

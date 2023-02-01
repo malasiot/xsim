@@ -24,10 +24,9 @@
 #include <QMainWindow>
 
 #include "mainwindow.hpp"
-#include "environment.hpp"
 
 #include "gui.hpp"
-
+#include "server.hpp"
 #include "world.hpp"
 
 cvx::RNG rng ;
@@ -54,6 +53,7 @@ int main(int argc, char **argv)
     std::unique_ptr<Trainer> trainer(new Trainer(agent.get(), params["trainer"]));
 
     GUI *gui = new GUI(world.get()) ;
+    gui->setTarget(env->params().target_, env->params().target_pos_, env->params().target_radius_) ;
 #if 0
     ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread(env.get()) ;
     QObject::connect(workerThread, &ExecuteEnvironmentThread::updateScene, gui, [gui]() { gui->update();});
@@ -68,6 +68,8 @@ workerThread->start();
     MainWindow window ;
     window.setGui(gui) ;
     window.resize(1024, 1024) ;
+
+    SimulationServer server ;
 
     window.show() ;
     return app.exec();

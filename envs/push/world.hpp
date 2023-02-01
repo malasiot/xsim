@@ -26,6 +26,8 @@ public:
     std::map<std::string, Eigen::Isometry3f> getBoxTransforms() const ;
     std::vector<std::string> getBoxNames() const ;
 
+    void setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius) ;
+
     void reset() ;
     void updateCollisionEnv() ;
 

@@ -10,6 +10,7 @@
 #include <xsim/collision.hpp>
 #include <xsim/convert.hpp>
 #include <xviz/scene/material.hpp>
+#include <xviz/scene/node.hpp>
 
 namespace xsim {
 
@@ -162,6 +163,8 @@ public :
     void setLinearVelocity(const Eigen::Vector3f &v) ;
     void setAngularVelocity(const Eigen::Vector3f &v) ;
     void clearForces() ;
+
+    xviz::NodePtr visual() const { return visual_shape_ ; }
 private:
 
     RigidBody(const RigidBodyBuilder &rb) ;

@@ -22,11 +22,13 @@ public:
     ~DQNAgent() ;
 
     // return action index based on e-greedy policy
-    int64_t act(const State &state, float epsilon) ;
+    int64_t act(const State &state, const Eigen::VectorXf &goal, float epsilon, bool use_target = false) ;
 
-    void learn(const State &state, const State &new_state, int64_t action, float reward, bool done) ;
+    void learn(const State &state, const State &new_state, int64_t action, float reward, bool done, const Eigen::VectorXf &goal) ;
 
     Environment *env() { return env_ ; }
+
+    void save(const std::string &out_path) ;
 
 private:
 
@@ -40,8 +42,9 @@ private:
 
 
     int64_t batch_size_ = 32;
-    float gamma_ = 0.99;
+    float gamma_ = 0.99, tau_ = 0.01;
     int64_t experience_replay_capacity_ = 10000 ;
+
 
     cvx::RNG rng_ ;
 };

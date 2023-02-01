@@ -2,6 +2,8 @@ find_package(OpenCV REQUIRED)
 find_package(Torch REQUIRED)
 include_directories(${BULLET_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
+find_package(Qt5 COMPONENTS Core Gui Network Widgets REQUIRED)
+
 add_executable(push_env
     run_env.cpp
     mainwindow.hpp
@@ -22,7 +24,11 @@ add_executable(push_env
     world.hpp
     gui.cpp
     gui.hpp
+    server.cpp
+    server.hpp
+    player.cpp
+    player.hpp
 
 )
 set_target_properties(push_env PROPERTIES AUTOMOC TRUE)
-target_link_libraries(push_env xsim cvx ${BULLET_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES})
+target_link_libraries(push_env xsim cvx ${BULLET_LIBRARIES} ${OpenCV_LIBRARIES} ${TORCH_LIBRARIES}  Qt5::Core Qt5::Gui Qt5::Network Qt5::Widgets)

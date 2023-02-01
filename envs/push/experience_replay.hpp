@@ -5,10 +5,12 @@
 #include <vector>
 #include <iostream>
 
-
 #include <algorithm>
 #include <iterator>
 #include <random>
+#include <Eigen/Core>
+
+
 
 class ExperienceReplay {
 public:
@@ -23,6 +25,7 @@ public:
         int64_t action_ ;
         float reward_ ;
         bool done_ ;
+
     };
 
     ExperienceReplay (int64_t capacity);

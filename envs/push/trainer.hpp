@@ -21,6 +21,10 @@ private:
     DQNAgent *agent_ ;
 
     double epsilon_start_ = 1.0;
-    double epsilon_final_ = 0.01;
-    int64_t epsilon_decay_ = 30000;
+    double epsilon_final_ = 0.05;
+    int64_t epsilon_decay_ = 20000;
+    int future_k_ = 4 ;
+    bool dense_reward_ = false ;
+    int64_t eval_every_ = 10, eval_episodes_ = 5 ;
+
 };

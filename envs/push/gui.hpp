@@ -4,7 +4,7 @@
 #include "bullet_gui.hpp"
 #include "robot.hpp"
 #include "world.hpp"
-#include "environment.hpp"
+#include "player.hpp"
 
 #undef slots
 #include "trainer.hpp"
@@ -25,58 +25,36 @@
 
 #include <iostream>
 
-class ExecuteEnvironmentThread: public QThread {
+class ExecuteStepThread: public QThread {
 
     Q_OBJECT
 public:
-    ExecuteEnvironmentThread(Environment *env): env_(env) {
+    ExecuteStepThread(Player *env, int64_t action): env_(env), action_id_(action) {
         env_->world()->setUpdateCallback([this]() {
             emit updateScene();
         });
     }
 
-    ~ExecuteEnvironmentThread() {
+    ~ExecuteStepThread() {
         env_->world()->setUpdateCallback(nullptr);
     }
 
     void run() override {
-        using namespace std ;
-        std::vector<std::string> boxes = env_->getBoxNames() ;
-
-        int trial = 0 ;
-        while (1) {
-            State state = env_->getState() ;
-
-#if 0
-
-            PushAction a ;
-            a.box_id_ = rng_.choice(boxes) ; ;
-            a.loc_ = rng_.uniform(0, 11) ;
-            cv::Mat im = env_->renderState(a, state) ;
-            cv::imwrite(cvx::format("/tmp/state_{:03d}.png", trial++), im) ;
-            auto res = env_->transition(state, a) ;
-
-            cout << res.first << ' ' << res.second << endl ;
-
-            if ( res.first.isTerminal() ) {
-                env_->reset() ;
-                trial = 0 ;
-            }
-#endif
-        }
+        auto state = env_->getState() ;
+        auto [new_state,  done] = v_->step(state, action_id_) ;
+        emit stepFinished(new_state, done) ;
     }
 
 signals:
     void updateScene();
-    void showTrajectory(const xsim::JointTrajectory &) ;
+    void stepFinished(const State &state, bool done) ;
 protected:
 
-    Environment *env_ ;
-    cvx::RNG rng_ ;
-
+    Player *env_ ;
+    int64_t action_id_ ;
 
 };
-
+/*
 class TrainingThread: public QThread {
 
     Q_OBJECT
@@ -108,12 +86,14 @@ protected:
 
 };
 
-
+*/
 
 class GUI: public SimulationGui {
     Q_OBJECT
 public:
     GUI(xsim::PhysicsWorld *e);
+
+    void setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius) ;
 
     void onUpdate(float delta) override;
 

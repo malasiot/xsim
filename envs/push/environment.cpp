@@ -138,8 +138,10 @@ tuple<State, float, bool> Environment::transition(const State &state, int64_t ac
     State new_state = getState() ;
 
     const auto &tbox = new_state.boxes_[target_idx_] ;
-    if ( Vector2f(tbox.cx_ - params_.target_pos_.x(), tbox.cy_ - params_.target_pos_.y()).norm() < params_.target_radius_ )
+    if ( Vector2f(tbox.cx_ - params_.target_pos_.x(), tbox.cy_ - params_.target_pos_.y()).norm() < params_.target_radius_ ) {
         new_state.type_ = STATE_TARGET_REACHED ;
+        cout << "target reached" << endl ;
+    }
 
     checkMotion(state, new_state) ;
 
@@ -275,15 +277,32 @@ Eigen::VectorXf Environment::stateToTensor(const State &state) const {
 
     for ( size_t i=0 ; i<state.boxes_.size() ; i++ ){
         const auto &box = state.boxes_[i] ;
-        state_vec.push_back(box.cx_);
-        state_vec.push_back(box.cy_);
-        state_vec.push_back(box.theta_);
+        state_vec.push_back(box.cx_ * 0.01);
+        state_vec.push_back(box.cy_ * 0.01);
+        state_vec.push_back(sin(box.theta_));
+        state_vec.push_back(cos(box.theta_)) ;
     }
 
     return Map<VectorXf>(state_vec.data(), state_vec.size()) ;
 //    at::Tensor state_tensor = at::from_blob(state_vec.data(), { 1, state_vec.size()}, at::TensorOptions().dtype(at::kFloat)).clone();
 
-  //  return state_tensor;
+    //  return state_tensor;
+}
+
+VectorXf Environment::desiredGoal() const {
+    VectorXf goal(2) ;
+    goal[0] = params_.target_pos_.x() * 0.01 ;
+    goal[1] = params_.target_pos_.y() * 0.01 ;
+
+    return goal ;
+}
+
+VectorXf Environment::stateToGoal(const State &state) const {
+    VectorXf goal(2) ;
+    goal[0] = state.boxes_[target_idx_].cx_ * 0.01;
+    goal[1] = state.boxes_[target_idx_].cy_ * 0.01;
+
+    return goal ;
 }
 
 void Environment::runSim(float t) {
@@ -300,13 +319,24 @@ float Environment::computeReward(const State &state) {
     if ( state.type_ == STATE_OUTSIDE_OF_WORKSPACE ) return -500 ;
     if ( state.type_ == STATE_UNREACHABLE ) return -20 ;
     if ( state.type_ == STATE_MAX_MOVES_REACHED ) return -50 ;
-    if ( state.type_ == STATE_TARGET_REACHED ) return 10 ;
+    if ( state.type_ == STATE_TARGET_REACHED ) return 0 ;
 
+    return -1 ;
+    /*
     float r = 0 ;
     if ( state.non_target_moved_ ) r += -5 ;
     if ( state.target_moved_ )
         r += ( state.movement_ < 0 ? -2 : 1 ) ;
     return r ;
+    */
+}
+
+float Environment::computeRewardForGoal(const State &state, const Eigen::VectorXf &goal) {
+    const auto &tbox = state.boxes_[target_idx_] ;
+    if ( Vector2f(tbox.cx_ - goal[0]/0.01, tbox.cy_ - goal[1]/0.01).norm() < params_.target_radius_ )
+        return 0 ;
+    else
+        return -1 ;
 }
 
 std::tuple<Vector3f, Vector3f, Vector3f> Environment::computeMotion(const Vector2f &c, float theta, int action_id) {
