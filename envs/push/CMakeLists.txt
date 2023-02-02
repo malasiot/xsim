@@ -1,5 +1,5 @@
 find_package(OpenCV REQUIRED)
-find_package(Torch REQUIRED)
+#find_package(Torch REQUIRED)
 include_directories(${BULLET_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
 find_package(Qt5 COMPONENTS Core Gui Network Widgets REQUIRED)

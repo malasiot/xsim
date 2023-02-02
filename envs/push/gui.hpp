@@ -51,6 +51,9 @@ public:
     GUI(Player *p);
 
     void setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius) ;
+    void setGrabFramePath(const QString &path) {
+        grab_frame_path_ = path ;
+    }
 
     void onUpdate(float delta) override;
 
@@ -58,17 +61,27 @@ public:
     void writeResponse(QTcpSocket *, const QJsonObject &) ;
     QJsonObject stateToJson(const State &state) ;
 
+   void keyPressEvent(QKeyEvent *event) override;
+
 private slots:
+    void grabScreen();
     void newConnection() ;
     void readRequest() ;
     void onSocketStateChanged(QAbstractSocket::SocketState socketState);
-    void sendStepResponse(const State &state, bool done) ;
 
+    void startRecording() ;
+    void stopRecording() ;
+signals:
+    void recordingStarted() ;
+    void recoringStopped() ;
 private:
 
     QTcpServer *server_ ;
     Player *player_ ;
     QMap<QTcpSocket *, QByteArray> connections_ ;
+    QTimer *timer_ ;
+    int64_t count_ ;
+    QString grab_frame_path_, title_ ;
 };
 
 

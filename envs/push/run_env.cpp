@@ -50,13 +50,15 @@ int main(int argc, char **argv)
     std::unique_ptr<World> world(new World(params["world"])) ;
     std::unique_ptr<Player> env(new Player(env_params, world.get())) ;
 
+    MainWindow window ;
     GUI *gui = new GUI(env.get()) ;
     gui->setTarget(env->params().target_,
                    { env_params.value("target.pos.x", 0.0).as<float>(),
                      env_params.value("target.pos.y", 0.0).as<float>() },
                      env_params.value("target.radius", 0.0).as<float>() ) ;
+    gui->setGrabFramePath("/tmp/grab");
 
-    MainWindow window ;
+
     window.setGui(gui) ;
     window.resize(1024, 1024) ;
 

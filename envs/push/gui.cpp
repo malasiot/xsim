@@ -13,6 +13,12 @@
 #include <QJsonArray>
 #include <QTcpSocket>
 #include <QTcpServer>
+#include <QGuiApplication>
+#include <QWindow>
+#include <QScreen>
+#include <QStandardPaths>
+#include <QDir>
+#include <QPainter>
 
 #include <xviz/scene/node_helpers.hpp>
 
@@ -33,6 +39,12 @@ GUI::GUI(Player *player): SimulationGui(player->world()), player_(player) {
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
     qRegisterMetaType<State>();
+
+    timer_ = new QTimer(this);
+    connect(timer_, &QTimer::timeout, this, &GUI::grabScreen);
+    count_ = 0;
+    title_ = MainWindow::instance()->windowTitle() ;
+
 }
 
 void GUI::setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius)
@@ -53,6 +65,7 @@ void GUI::setTarget(const std::string &box, const Eigen::Vector2f &pos, float ra
 
 void GUI::onUpdate(float delta) {
     SimulationGui::onUpdate(delta) ;
+
     //     vector<ContactResult> results ;
     //    physics.contactPairTest(target_, table_mb->getLink("baseLink"), 0.01, results) ;
 }
@@ -167,9 +180,42 @@ void GUI::onSocketStateChanged(QAbstractSocket::SocketState socketState) {
     }
 }
 
-void GUI::sendStepResponse(const State &state, bool done)
-{
+void GUI::startRecording() {
+    stopRecording() ;
+    count_ = 0 ;
+    timer_->start(200) ;
+    MainWindow::instance()->setWindowTitle(title_ + " (recording)");
 
+}
+
+
+void GUI::grabScreen() {
+    QScreen *screen = QGuiApplication::primaryScreen();
+    if (const QWindow *window = windowHandle())
+        screen = window->screen();
+    if (!screen)
+        return;
+
+    auto image = grabFramebuffer();
+
+    if (grab_frame_path_.isEmpty()) {
+        grab_frame_path_ = QDir::currentPath();
+        grab_frame_path_ += "/grab" ;
+    }
+
+    QString file_name = QString("%1_%2.png").arg(grab_frame_path_).arg((int)count_, 4, 10, QLatin1Char('0'));
+
+
+    if (!image.save(file_name)) {
+        qDebug() << "The image could not be saved to " << QDir::toNativeSeparators(file_name);
+    }
+
+    count_++;
+}
+
+void GUI::stopRecording() {
+    timer_->stop();
+    MainWindow::instance()->setWindowTitle(title_);
 }
 
 
@@ -179,7 +225,15 @@ void GUI::newConnection() {
     connect(socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(onSocketStateChanged(QAbstractSocket::SocketState)));
     connections_.insert(socket, QByteArray());
     connect(socket, &QAbstractSocket::disconnected, socket, &QObject::deleteLater);
-
-
-
 }
+
+void GUI::keyPressEvent(QKeyEvent *event) {
+    int key = event->key() ;
+    if ( key == Qt::Key_R ) {
+        startRecording() ;
+    } else if ( key == Qt::Key_S ) {
+        stopRecording() ;
+    } else
+        SceneViewer::keyPressEvent(event);
+}
+

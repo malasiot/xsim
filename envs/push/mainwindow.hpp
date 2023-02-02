@@ -23,6 +23,7 @@ public:
 
 
     void setGui(QWidget *gui);
+
 private:
 
     static MainWindow *instance_ ;

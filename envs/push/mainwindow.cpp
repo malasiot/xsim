@@ -12,6 +12,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow{parent}
 {
     instance_ = this ;
+    setWindowTitle("push_env");
 
 
 }
