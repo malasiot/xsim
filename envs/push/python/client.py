@@ -18,8 +18,8 @@ class SimulationClient:
     def __init__(self):
       self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       
-    def connect(self, host, port):
-      self.sock.connect((host, port))
+    def connect(self):
+      self.sock.connect((HOST, PORT))
        
     def request(self, req):
       data = json.dumps(req) + ';' ;
@@ -30,11 +30,11 @@ class SimulationClient:
       received = recvall(self.sock)
       received = received.decode("utf-8")
       self.sock.close()
-      return received ;
+      return json.loads(received) ;
      
-sock = SimulationClient() ;
-sock.connect(HOST, PORT)
-sock.request({"request": "step"})
-response = sock.response()
+#sock = SimulationClient() ;
+#sock.connect(HOST, PORT)
+#sock.request({"request": "step", "action": 12})
+#response = sock.response()
 
-print(f"Received {response}")
+#print(f"Received {response}")

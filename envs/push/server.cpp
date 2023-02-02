@@ -21,8 +21,15 @@ QJsonObject SimulationServer::getResponse(const QJsonObject &req) {
 
     QJsonObject resp ;
     if ( req_key == "reset" ) {
+        player_->reset() ;
+
         resp.insert("status", "reset") ;
     } else if ( req_key == "step" ) {
+        int64_t action_id = req["action"].toInt() ;
+        ExecuteStepThread *workerThread = new ExecuteStepThread() ;
+        connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
+        connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){ delete traj_thread_ ; traj_thread_ = nullptr;});
+        workerThread->start();
         resp.insert("status", "step") ;
     }
 

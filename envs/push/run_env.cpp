@@ -26,7 +26,6 @@
 #include "mainwindow.hpp"
 
 #include "gui.hpp"
-#include "server.hpp"
 #include "world.hpp"
 
 cvx::RNG rng ;
@@ -47,29 +46,19 @@ int main(int argc, char **argv)
 
     auto params = cvx::Variant::fromConfigFile(path + "/envs/push.cfg") ;
 
+    auto env_params = params["environment"] ;
     std::unique_ptr<World> world(new World(params["world"])) ;
-    std::unique_ptr<Environment> env(new Environment(params["environment"], world.get())) ;
-    std::unique_ptr<DQNAgent> agent(new DQNAgent(env.get(), params["agent"])) ;
-    std::unique_ptr<Trainer> trainer(new Trainer(agent.get(), params["trainer"]));
+    std::unique_ptr<Player> env(new Player(env_params, world.get())) ;
 
-    GUI *gui = new GUI(world.get()) ;
-    gui->setTarget(env->params().target_, env->params().target_pos_, env->params().target_radius_) ;
-#if 0
-    ExecuteEnvironmentThread *workerThread = new ExecuteEnvironmentThread(env.get()) ;
-    QObject::connect(workerThread, &ExecuteEnvironmentThread::updateScene, gui, [gui]() { gui->update();});
-    QObject::connect(workerThread, &ExecuteEnvironmentThread::finished, workerThread, [workerThread](){ delete workerThread ;});
-workerThread->start();
-#endif
-    TrainingThread *workerThread = new TrainingThread(trainer.get()) ;
-    QObject::connect(workerThread, &TrainingThread::updateScene, gui, [gui]() { gui->update();});
-    QObject::connect(workerThread, &TrainingThread::finished, workerThread, [workerThread](){ delete workerThread ;});
-    workerThread->start() ;
+    GUI *gui = new GUI(env.get()) ;
+    gui->setTarget(env->params().target_,
+                   { env_params.value("target.pos.x", 0.0).as<float>(),
+                     env_params.value("target.pos.y", 0.0).as<float>() },
+                     env_params.value("target.radius", 0.0).as<float>() ) ;
 
     MainWindow window ;
     window.setGui(gui) ;
     window.resize(1024, 1024) ;
-
-    SimulationServer server ;
 
     window.show() ;
     return app.exec();

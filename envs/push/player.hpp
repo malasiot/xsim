@@ -40,6 +40,8 @@ public:
         float motion_push_offset_ = 0.05 ;
         std::string target_ = "box_0_0";
         int32_t max_trials_ = 100 ;
+        Eigen::Vector2f target_pos_ ;
+        float target_radius_ ;
     };
 
     Player(const Parameters &params, World *world);
@@ -60,6 +62,10 @@ public:
 
     const Parameters &params() const { return params_ ; }
 
+    int64_t numActions() const { return actions_.size() ; }
+    int64_t numBoxes() const { return box_names_.size() ; }
+
+    std::vector<int64_t> getFeasibleActions(const State &state);
 protected:
 
     void runSim(float t) ;

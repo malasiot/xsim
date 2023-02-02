@@ -91,6 +91,15 @@ bool Player::isFeasible(const State &state, int64_t action_index) {
     return world_->plan(p1, p2, box_names_[action.box_id_], orig, t1, t2) ;
 }
 
+std::vector<int64_t> Player::getFeasibleActions(const State &state) {
+    std::vector<int64_t> act ;
+    for( size_t i=0 ; i<actions_.size() ; i++ ) {
+        if ( isFeasible(state, i) )
+            act.push_back(i);
+    }
+    return act ;
+}
+
 State Player::getState() const {
     State state ;
 
@@ -179,4 +188,7 @@ Player::Parameters::Parameters(const cvx::Variant &config) {
     config.lookup("motion.push_offset", motion_push_offset_) ;
     config.lookup("target.box", target_) ;
     config.lookup("max_trials", max_trials_) ;
+    config.lookup("target.pos.x", target_pos_.x()) ;
+    config.lookup("target.pos.y", target_pos_.y()) ;
+    config.lookup("target.radius", target_radius_) ;
 }
