@@ -43,7 +43,7 @@ class DQNAgent:
         use_her = self.config.use_her
 
         if use_her and goal is not None:
-            state = np.concatenate([self.env.stateVec(state), goal])
+            state = np.concatenate([self.env.stateVec(state), self.env.goalVec(goal)])
 
         return state
 

@@ -96,6 +96,7 @@ void GUI::handleRequest(QTcpSocket *socket, const QJsonObject &req) {
         connect(workerThread, &ExecuteStepThread::finished, workerThread, &ExecuteStepThread::deleteLater);
         connect(workerThread, &ExecuteStepThread::finishedStep, this,
                 [this, socket](const State &state, bool done) {
+            if ( !socket || !socket->isValid() ) return ;
             QJsonObject o = stateToJson(state);
             QJsonObject response ;
             response.insert("state", o) ;
@@ -113,6 +114,8 @@ void GUI::handleRequest(QTcpSocket *socket, const QJsonObject &req) {
         QJsonObject info ;
         info.insert("boxes", (int)player_->numBoxes()) ;
         info.insert("actions", (int)player_->numActions()) ;
+        auto state = player_->getState() ;
+        info.insert("state", stateToJson(state)) ;
         writeResponse(socket, info);
     }
 
