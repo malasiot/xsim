@@ -93,8 +93,6 @@ public:
     // call this to disable collision among pairs of objects
     void setCollisionFilter(CollisionFilter *f) ;
 
-    void addSensor(SensorPtr sensor) ;
-
     btSoftBodyWorldInfo &getSoftBodyWorldInfo() { return soft_body_world_info_ ; }
 
     void setUpdateCallback(UpdateCallback cb) ;
@@ -122,7 +120,7 @@ private:
     std::vector<MultiBodyPtr> multi_bodies_ ;
     std::map<std::string, uint> multi_body_map_ ;
     std::vector<GhostObjectPtr> ghosts_ ;
-    std::vector<SensorPtr> sensors_ ;
+
     std::vector<Constraint> constraints_ ;
     std::unique_ptr<btOverlapFilterCallback> filter_callback_ ;
     std::unique_ptr<btInternalTickCallback> tick_callback_ ;

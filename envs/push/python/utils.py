@@ -30,7 +30,9 @@ make_experience = namedtuple('Experience',
                                           'reward',
                                           'next_state',
                                           'done', 
-                                          'info'])
+                                          'info',
+                                          'feasible'
+                                         ])
 
 def from_experience(experiences):
     states = torch.from_numpy(
@@ -49,7 +51,10 @@ def from_experience(experiences):
         np.vstack([e.done for e in experiences if e is not None])\
         .astype(np.uint8)).to(device)
     
-    return states, actions, rewards, next_states, dones
+    feasible = [ e.feasible for e in experiences if e is not None]
+    
+    
+    return states, actions, rewards, next_states, dones, feasible
 
 def sample_transitions(trajectory, from_t, future_k):
     if future_k == 1:

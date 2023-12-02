@@ -14,7 +14,15 @@ MainWindow::MainWindow(QWidget *parent)
     splitter_ = new QSplitter(this) ;
     splitter_->setOrientation(Qt::Horizontal);
     controls_ = new QWidget(this) ;
-    splitter_->addWidget(controls_) ;
+    image_ = new QLabel(this) ;
+
+    QWidget *left_panel = new QWidget(this) ;
+    QVBoxLayout *vbox = new QVBoxLayout() ;
+
+    vbox->addWidget(controls_) ;
+    vbox->addWidget(image_) ;
+    left_panel->setLayout(vbox);
+    splitter_->addWidget(left_panel) ;
     setCentralWidget(splitter_) ;
 
     control_layout_ = new QVBoxLayout() ;
@@ -87,4 +95,9 @@ void MainWindow::updateControls(const xsim::JointState &state)
         }
     }
 
+}
+
+void MainWindow::updateImage(const QImage &im)
+{
+image_->setPixmap(QPixmap::fromImage(im.scaledToWidth(150)));
 }

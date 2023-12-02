@@ -22,7 +22,7 @@ config.use_her = True
 config.future_k = 8
 config.dist_tolerance = 0.2
 config.dense_reward = True
-config.times_eval = 10
+config.times_eval = 5
 config.eval_every = 20
 
 seed_all(0)

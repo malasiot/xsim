@@ -30,6 +30,8 @@ struct State {
     }
 
     std::string toString() const ;
+
+    std::vector<int64_t> feasible_ ;
 };
 
 class Player {
@@ -54,7 +56,7 @@ public:
     // check if action is feasible for the current state
     bool isFeasible(const State &state, int64_t action_idx) ;
 
-    State getState() const ;
+    State getState() ;
 
     std::vector<std::string> getBoxNames() const { return box_names_ ; }
 

@@ -8,6 +8,7 @@ class QSplitter;
 class QSlider ;
 class GUI ;
 class QVBoxLayout ;
+class QLabel ;
 
 class MainWindow : public QMainWindow
 {
@@ -26,6 +27,7 @@ public:
     void endSliders() ;
 public slots:
     void updateControls(const xsim::JointState &) ;
+    void updateImage(const QImage &im) ;
 signals:
     void controlValueChanged(const std::string &name, float v) ;
 
@@ -33,6 +35,7 @@ private:
     QSplitter *splitter_ ;
     QWidget *controls_ ;
     QWidget *gui_ ;
+    QLabel *image_ ;
 
     struct SliderData {
         float lower_, upper_ ;

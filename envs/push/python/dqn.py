@@ -10,7 +10,7 @@ from collections import deque
 from replay_buffer import ReplayBuffer
 from utils import make_experience, from_experience, seed_all, sample_transitions
 from device import device
-from network import DuelingQNetwork
+from network import DQNetwork
 import math
 
 
@@ -28,8 +28,8 @@ class DQNAgent:
         batch_size = config.batch_size
 
         net_state_size = state_size + (goal_size if use_her else 0)
-        self.qn_local = DuelingQNetwork(net_state_size, action_size).to(device)
-        self.qn_target = DuelingQNetwork(net_state_size, action_size).to(device)
+        self.qn_local = DQNetwork(net_state_size, action_size).to(device)
+        self.qn_target = DQNetwork(net_state_size, action_size).to(device)
 
         self.soft_update(1.0)
 
@@ -59,21 +59,20 @@ class DQNAgent:
             action_values = model(state_input)
         model.train()
 
+        mask = [j for j in range(self.env.action_size) if j not in feasible  ]
+        action_values[:,mask] = float('-inf') 
+        
         # ε-greedy
         if random.random() > eps:
-            action_values = action_values.cpu().squeeze(0).numpy() ;
-            indices = np.argsort(-action_values)
-            for idx in indices:
-                if idx in feasible:
-                    return int(idx)
+            return int(np.argmax(action_values.cpu().numpy()))
         else:
             return random.choice(feasible)
 
-    def step(self, state, action, reward, next_state, done, goal):
+    def step(self, state, action, reward, next_state, done, goal, feasible):
         update_every = self.config.update_every
         batch_size = self.config.batch_size
 
-        self.add_experience(state, action, reward, next_state, done, goal)
+        self.add_experience(state, action, reward, next_state, done, goal, feasible)
 
         self.t_step = (self.t_step + 1) % update_every
 
@@ -83,7 +82,7 @@ class DQNAgent:
                 return self.learn(experiences)
 
     def learn(self, experiences):
-        (states, actions, rewards, next_states, dones) = from_experience(experiences)
+        (states, actions, rewards, next_states, dones, feasible) = from_experience(experiences)
 
         tau = self.config.tau
         gamma = self.config.gamma
@@ -93,7 +92,21 @@ class DQNAgent:
 
         if use_double:
             # Double DQN: https://arxiv.org/abs/1509.06461
-            best_action = self.qn_local(next_states).argmax(-1, keepdim=True)
+            
+            q = self.qn_local(next_states)
+            
+            qs = q.detach()
+            mask = []
+            for i in range(len(experiences)):
+                e = experiences[i]
+                mask = [j for j in range(self.env.action_size) if j not in e.feasible]
+                qs[i, mask] = -100
+
+            #masking of non feasible actions            
+ #           mask = [i for i in range(self.env.action_size) if i not in feasible]
+  #          q[:, mask] = float('-inf')
+          
+            best_action = qs.argmax(-1, keepdim=True)
             max_q = self.qn_target(next_states).detach().gather(-1, best_action)
         else:
             max_q = self.qn_target(next_states).detach().max(-1, keepdim=True)[0]
@@ -128,13 +141,13 @@ class DQNAgent:
         ):
             target_param.data.copy_(tau * local_param + (1.0 - tau) * target_param)
 
-    def add_experience(self, state, action, reward, next_state, done, goal=None):
+    def add_experience(self, state, action, reward, next_state, done, goal, feasible):
         use_her = self.config.use_her
 
         state_ = self.process_input(state, goal)
         next_state_ = self.process_input(next_state, goal)
 
-        experience = make_experience(state_, action, reward, next_state_, done, {})
+        experience = make_experience(state_, action, reward, next_state_, done, None, feasible)
         self.memory.add(experience)
 
     def eval_episode(self, use_target=False):
@@ -189,14 +202,15 @@ class DQNAgent:
             for _ in range(max_steps):
                 # With probability eps select a random action, otherwise select max
                 action = self.act(state, goal, feasible, eps)
-              
+                
+            
                 # Execute action and observe next state and reward
                 next_state, done, feasible = self.env.step(action)
                 reward, success = self.env.computeReward(next_state, goal, done)
-
+               
                 done = True if success else done
                 # Store transition and perform optimization step
-                self.step(state, action, reward, next_state, done, goal)
+                self.step(state, action, reward, next_state, done, goal, feasible)
 
                 # Store for potential use in HER
                 trajectory.append(
@@ -205,7 +219,9 @@ class DQNAgent:
                                     reward, 
                                     next_state, 
                                     done, 
-                                    success)
+                                    success,
+                                    feasible
+                                    )
                 )
 
                 total_reward += reward
@@ -221,7 +237,7 @@ class DQNAgent:
                 
                 # Replay transitions with different goals
                 for t in range(steps_taken):
-                    state, action, _, next_state, done, success = copy.deepcopy(trajectory[t])
+                    state, action, _, next_state, done, success, feasible = copy.deepcopy(trajectory[t])
                     
                     # Will sample final or future random transitions depending on 'future_k'
                     #   future_k = 1 => final strategy
@@ -244,7 +260,9 @@ class DQNAgent:
                                   reward, 
                                   next_state, 
                                   False, # we're not done even if goal is reached (keep hovering)
-                                  additional_goal)
+                                  additional_goal,
+                                  feasible
+                                  )
             ### End HER ###
 
             avg_loss = np.mean(self.losses)

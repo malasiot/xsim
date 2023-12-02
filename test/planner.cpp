@@ -32,7 +32,7 @@ bool Planner::planRelative(const JointState &start_state, const Eigen::Vector3f 
 
     // setup the goal region
 
-    BoxShapedRegion goal(c1, {0.01, 0.01, 0.02}, euler, {0.05, 0.05, 0.05}) ;
+    BoxShapedRegion goal(c1, {0.02, 0.02, 0.02}, euler, {0.05, 0.05, 0.05}) ;
     MoveRelativeTaskSpace ts(pose, dp, 0.01, { 0.05, 0.05, 0.05}) ;
 
     TaskSpacePlanner planner(iplan_) ;

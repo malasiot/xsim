@@ -32,8 +32,6 @@ void PhysicsWorld::tickCallback(btDynamicsWorld *world, btScalar step) {
     w->updateSimTime(step) ;
 
     w->queryCollisions() ;
-    for( SensorPtr sensor: w->sensors_ )
-        sensor->update(w->getSimTime()) ;
 
 }
 
@@ -554,11 +552,6 @@ void PhysicsWorld::setCollisionFilter(CollisionFilter *f) {
     pair_cache->setOverlapFilterCallback(filter_callback_.get());
 }
 
-void PhysicsWorld::addSensor(SensorPtr sensor) {
-    assert(dynamics_world_);
-    sensors_.push_back(sensor) ;
-    sensor->init(*this) ;
-}
 
 void PhysicsWorld::setUpdateCallback(PhysicsWorld::UpdateCallback cb) {
     update_cb_ = cb ;

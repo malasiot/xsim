@@ -100,7 +100,7 @@ std::vector<int64_t> Player::getFeasibleActions(const State &state) {
     return act ;
 }
 
-State Player::getState() const {
+State Player::getState() {
     State state ;
 
     if ( trial_ == params_.max_trials_ ) {
@@ -137,6 +137,8 @@ State Player::getState() const {
 
         bs.theta_ = asin(tr(0, 1)) ;
     }
+
+    state.feasible_ = getFeasibleActions(state);
 
     return state ;
 }

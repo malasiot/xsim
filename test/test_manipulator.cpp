@@ -34,53 +34,27 @@ using namespace xsim ;
 using namespace xviz ;
 using namespace std ;
 using namespace Eigen ;
-#if 0
-void createScene(const std::string &path, const URDFRobot &robot, const URDFRobot &table) {
 
-    physics.createMultiBodyDynamicsWorld();
-    physics.setGravity({0, 0, -10});
-
-
-
-    // ur5 + gripper
-    robot_mb = physics.addMultiBody(MultiBodyBuilder(robot)
-                                    .setName("robot")
-                                    .setFixedBase()
-                                    .setLinearDamping(0.f)
-                                    .setAngularDamping(0.f)
-                                    ) ;
-
-    robot_mb->setJointPosition("shoulder_lift_joint", -0.6);
-    robot_mb->setJointPosition("elbow_joint", 0.2);
-
-    // table
-    table_mb = physics.addMultiBody(MultiBodyBuilder(table).setName("table"));
-
-    // a cube to grasp
-
-    cube_rb = physics.addRigidBody(RigidBodyBuilder()
-                                   .setCollisionShape(make_shared<BoxCollisionShape>(Vector3f(0.08, 0.08, 0.08)))
-                                   .makeVisualShape({1.0, 0.1, 0.6, 1})
-                                   .setName("cube")
-                                   .setWorldTransform(Isometry3f(Translation3f{0.35, 0.25, 0.7})));
-}
-#endif
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
 
     SceneViewer::initDefaultGLContext() ;
 
+    MainWindow window ;
+    window.setWindowTitle("test_manipulator");
 
     World *world = new World("/home/malasiot/source/xsim/data/") ;
 
     GUI *gui = new GUI(world) ;
-    MainWindow window ;
+    gui->setGrabFramePath("/tmp/grab");
+
     window.setGui(gui) ;
     window.resize(1024, 1024) ;
 
 
     QObject::connect(&window, &MainWindow::controlValueChanged, gui, &GUI::changeControlValue) ;
+    QObject::connect(gui, &GUI::imageCaptured, &window, &MainWindow::updateImage) ;
 
 
     for( const auto &jname: world->iplan()->getJointChain() ) {

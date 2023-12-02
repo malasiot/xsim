@@ -6,12 +6,29 @@
 #include <xsim/collision_space.hpp>
 #include <xsim/robot_scene.hpp>
 
+#include <xviz/scene/light.hpp>
 #include <cvx/misc/format.hpp>
 #include <thread>
 
 using namespace std;
 using namespace xsim ;
 using namespace Eigen ;
+
+Isometry3f lookAt(const Vector3f &eye, const Vector3f &center, const Vector3f &up) {
+    Vector3f f = (center - eye).normalized();
+    Vector3f s = f.cross(up).normalized();
+    Vector3f u = s.cross(f) ;
+
+    Isometry3f mat ;
+
+    mat.linear() <<
+     s.x(), s.y(), s.z(),
+            u.x(), u.y(), u.z(),
+            -f.x(), -f.y(), -f.z() ;
+
+    mat.translation() << -s.dot(eye), -u.dot(eye), f.dot(eye) ;
+    return mat ;
+}
 
 World::World(const std::string &data_dir) {
 
@@ -39,6 +56,22 @@ World::World(const std::string &data_dir) {
     createScene(robot) ;
 
     resetRobot() ;
+
+    camera_.reset(new RGBDCameraSensor(640, 480, M_PI*50/180.0, 0.001, 4.0)) ;
+
+    Isometry3f pose ;
+    pose.setIdentity() ;
+
+    pose.translate(Vector3f(0.1, -0.5, -0.9)) ;
+     pose.rotate(AngleAxisf(-M_PI/3, Vector3f::UnitX()));
+    camera_->setPose(pose) ; //lookAt({1, 1, 3}, {0, 0.5, 0}, {0, 0, 1})) ;
+
+
+    auto dl = make_shared<xviz::DirectionalLight>(Vector3f(0.5, 0.5, 1))  ;
+    dl->setDiffuseColor({1, 1, 1}) ;
+    getVisual()->addLightNode(dl) ;
+
+    camera_->setScene(getVisual()) ;
 }
 
 
@@ -69,6 +102,108 @@ void World::updateCollisionEnv() {
 ///    collisions_->updateObjectTransforms(trs);
 }
 
+
+void World::createScene(const URDFRobot &robot) {
+    CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{table_width_/2.0, table_height_/2.0, 0.001})) ;
+    table_cs->setMargin(0) ;
+    Isometry3f table_tr(Translation3f{table_offset_x_, table_offset_y_,  -0.001}) ;
+
+
+    // ur5 + gripper
+    robot_mb_ = addMultiBody(MultiBodyBuilder(robot)
+                             .setName("robot")
+                             .setFixedBase()
+                             .setMargin(0.01)
+                             .setLinearDamping(0.f)
+                             .setAngularDamping(0.f)
+                             ) ;
+
+    resetRobot() ;
+
+    controller_.reset(new Robot(this, robot_mb_)) ;
+
+    collisions_->addCollisionObject("table", table_cs, table_tr);
+
+    table_rb_ = addRigidBody(RigidBodyBuilder()
+                             .setCollisionShape(table_cs)
+                             .makeVisualShape({0.5, 0.5, 0.5, 1})
+                             .setName("table")
+                             .setFriction(3.0)
+                             .setWorldTransform(table_tr)
+                             ) ;
+
+    CollisionShapePtr box_cs(new BoxCollisionShape(box_sz_));
+    box_cs->setMargin(0.0) ;
+
+    CollisionShapePtr box_cs2(new BoxCollisionShape(box_sz_));
+    box_cs2->setMargin(0.02) ;
+
+    float gap = 0.001 ;
+
+    float pallet_width = grid_x_ * ( 2 * box_sz_.x() )  + (grid_x_ - 1 ) * gap ;
+    float pallet_height = grid_y_ * ( 2 * box_sz_.y() )  + (grid_y_ - 1 ) * gap ;
+
+    Vector3f offset{pallet_offset_x_ - pallet_width/2.0 + box_sz_.x() , pallet_offset_y_ - pallet_height/2.0 + box_sz_.y(), 0} ;
+
+    vector<string> box_names ;
+    for( int i=0 ; i<grid_y_ ; i++ ) {
+        for( int j=0 ; j<grid_x_ ; j++ ) {
+            Vector3f c{j * ( box_sz_.x() * 2 + gap ), i * (box_sz_.y() * 2 + gap), box_sz_.z()} ;
+            Isometry3f box_tr(Translation3f{c + offset}) ;
+
+          //  box_tr.linear() = AngleAxisf(M_PI*10/180.0, Vector3f::UnitZ()).matrix() ;
+
+            string name = cvx::format("box_{}_{}", i, j) ;
+
+            Vector4f bclr = (i ==0 && j == 0 ) ? Vector4f(1.0, 0.0, 0.2, 1) : Vector4f(1.0, 0.1, 0.9, 1) ;
+            auto box = addRigidBody(RigidBodyBuilder()
+                                    .setMass(1.5)
+                                    .setCollisionShape(box_cs)
+                                    .makeVisualShape(bclr)
+                                    .setName(name)
+                                    .setFriction(0.5)
+                                    .setRestitution(0.01)
+                                    .setSpinningFriction(0.005)
+                                    .setWorldTransform(box_tr));
+
+            box->disableDeactivation();
+
+            boxes_.emplace_back(box) ;
+
+            orig_trs_.emplace_back(box_tr) ;
+
+            collisions_->disableCollision("table", name);
+            collisions_->addCollisionObject(name, box_cs2, box_tr);
+
+            box_names.emplace_back(name) ;
+        }
+    }
+
+    for( const auto &ba: box_names ) {
+        for( const auto &bb: box_names ) {
+            collisions_->disableCollision(ba, bb);
+        }
+    }
+
+
+
+}
+
+
+void World::disableToolCollisions()
+{
+    for( const auto &b: boxes_ ) {
+        collisions()->disableCollision(b->getName(), "tool") ;
+    }
+}
+
+void World::enableToolCollisions()
+{
+    for( const auto &b: boxes_ ) {
+        collisions()->enableCollision(b->getName(), "tool") ;
+    }
+}
+/*
 void World::createScene(const URDFRobot &robot) {
 
     CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{0.5, 0.5, 0.001})) ;
@@ -124,7 +259,7 @@ void World::createScene(const URDFRobot &robot) {
 
 
 }
-
+*/
 void World::coverage_analysis() {
 
     ofstream strm("/tmp/coverage.ply") ;

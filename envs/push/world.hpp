@@ -16,7 +16,7 @@ public:
         int grid_x_ = 3, grid_y_ = 2 ;
         std::string data_dir_ ;
 
-        float table_width_ = 0.75, table_height_ = 1.5 ;
+        float table_width_ = 3, table_height_ = 2.5 ;
         float table_offset_x_ = 0.0, table_offset_y_ = 0.65 ;
         float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.55 ;
     };
@@ -37,7 +37,8 @@ public:
     xsim::CollisionSpace *collisions() { return collisions_.get() ; }
     const Parameters &params() const { return params_ ; }
 
-      xsim::MultiBodyPtr pusher_ ;
+    xsim::MultiBodyPtr pusher_ ;
+
 private:
     xsim::RigidBodyPtr table_rb_ ;
     std::vector<xsim::RigidBodyPtr> boxes_ ;

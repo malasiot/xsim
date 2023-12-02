@@ -8,16 +8,17 @@ class Env:
 		self.goal_pos = config.target_pos
 		self.goal_radius = config.target_radius
 		self.goal_id = config.target
-		self.obstacle_radius = 0.05
+		self.obstacle_box_center = [0.0, 0.6]
+		self.obstacle_box_hsz = [0.2, 0.2]
   
 		response = self.req("info")
 		self.action_size = response["actions"]
 		self.state_size = response["boxes"] * 4
-		self.goal_size = response["boxes"] * 2
+		self.goal_size = 4
 		self.dense_reward = config.dense_reward
 
 		initial_state = response['state']
-		self.goal_orig = self.makeGoal(initial_state, self.goal_pos)
+		self.goal_orig = self.makeGoal(self.goal_pos, self.obstacle_box_center)
 	
   
 	def req(self, key, args = {}):
@@ -32,28 +33,19 @@ class Env:
 	# Reset simulation and returns a tuple (state, info)      
 	def reset(self): 
 		response = self.req("reset")
-		return response["state"], response["feasible"]
+		return response["state"], response['feasible']
 	
 	#Step simulation and return a tuple (new_state, done)		
 	def step(self, action):
 		response = self.req("step", {"action": action})
 		new_state = response["state"]
 		done = response["done"]
-		feasible = response["feasible"]
-		
+		feasible = response['feasible']
+				
 		return new_state, done, feasible
 
-	def makeGoal(self, state, target) :
-		a = np.zeros(self.goal_size)
-		k=0
-		a[k] = target[0] ; k+=1
-		a[k] = target[1] ; k+=1
-		
-		for b in state['boxes']:
-			if b["name"] != self.goal_id:
-				a[k] = b['x'] ; k+=1
-				a[k] = b['y'] ; k+=1
-				
+	def makeGoal(self, target, box) :
+		a = np.array([target[0], target[1], box[0], box[1]])
 		return a
     
      
@@ -63,38 +55,51 @@ class Env:
   			
 	def	to_goal(self, state):
 		target = []
+		center = [0, 0]
 		for b in state['boxes']:
 			if b["name"] == self.goal_id:
 				target = [b['x'], b['y']]
-				break
+			else:
+				center[0] += b['x']
+				center[1] += b['y']
+		center[0] /= len(state['boxes'])-1
+		center[1] /= len(state['boxes'])-1
 
-		return self.makeGoal(state, target)
+		return self.makeGoal(target, center)
+		
+	def bbox(self, state):
+		minx, miny, maxx, maxy = None, None, None, None
+		for box in state['boxes']:
+			if box['name'] != self.goal_id:
+				x, y  = box['x'], box['y']
+				minx = x if minx == None else min(x, minx)
+				miny = y if miny == None else min(y, miny)
+				maxx = x if maxx == None else max(x, maxx)
+				maxy = y if maxy == None else max(y, maxy)
+    
+		return [minx, miny, maxx, maxy]
 		
 	def computeReward(self, state, goal, done):
 		if done:
-			return -10, False
+			return -1, False
 
 		sgoal = self.to_goal(state)
   
 		d0 = np.linalg.norm(sgoal[:2] - goal[:2])
 		success = d0 < self.goal_radius
 
-		for k in range(2, goal.size, 2):
-			d = np.linalg.norm(sgoal[k:k+2] - goal[k:k+2])
-			if d > self.obstacle_radius:
-				success = False 
-				d0 += d ;
-
-		d0 /=  goal.size/2
+		minx, miny, maxx, maxy = self.bbox(state)
+		 
+  			
+		if (minx < goal[2] - self.obstacle_box_hsz[0]) or \
+      		(miny < goal[3] - self.obstacle_box_hsz[1]) or \
+          	( maxx > goal[2] + self.obstacle_box_hsz[0]) or \
+            ( maxy > goal[3] + self.obstacle_box_hsz[1]):
+			success = False 
 		
-		if self.dense_reward:
-			reward = 1. if success else -d
-		else:
-            # Sparse reward:
-            #    1 => success
-            #   -1 => fail
-			reward = 1. if success else -1.
+		reward = 1. if success else -1.
    
+	
 		return reward, success
 
 

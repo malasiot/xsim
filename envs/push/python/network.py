@@ -33,3 +33,23 @@ class DuelingQNetwork(nn.Module):
         value = self.value(x)
         
         return value + advantage  - advantage.mean(dim=1, keepdim=True)
+    
+class DQNetwork(nn.Module):
+  
+
+    def __init__(self, state_size, action_size):
+        super().__init__()
+        self.action_size = action_size 
+        
+        self.features = nn.Sequential(
+            nn.Linear(state_size, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, action_size)
+        )
+        
+           
+    def forward(self, state):
+        q = self.features(state)
+        return q

@@ -58,9 +58,9 @@ class GUI: public xviz::SceneViewer, xsim::CollisionFeedback {
 public:
     GUI(World *world);
 
-    void openGripper();
-
-    void closeGripper();
+    void setGrabFramePath(const QString &path) {
+        grab_frame_path_ = path ;
+    }
 
     void onUpdate(float delta) override;
 
@@ -75,17 +75,28 @@ public:
     void processContact(xsim::ContactResult &r) override;
 
     void trajectory(const xsim::JointTrajectory &traj);
+    void paintGL();
 private:
     std::shared_ptr<xviz::TransformManipulator> gizmo_;
     xviz::NodePtr target_ ;
     World *world_ ;
     xviz::NodePtr traj_node_, traj_points_[100] ;
     ExecuteTrajectoryThread *traj_thread_ = nullptr ;
+    QTimer *timer_ ;
+    int64_t count_ ;
+    QString grab_frame_path_, title_ ;
+    QImage image_ ;
 
     void showTrajectory(const xsim::JointTrajectory &traj);
 public slots:
     void changeControlValue(const std::string &jname, float v);
     void updateControls(const xsim::JointState &state) ;
+
+signals:
+    void imageCaptured(QImage) ;
+private slots:
+
+    void updateSensors();
 
 };
 

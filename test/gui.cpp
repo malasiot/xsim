@@ -4,11 +4,16 @@
 #include "planning_interface.hpp"
 
 #include <xviz/scene/node_helpers.hpp>
+#include <xviz/scene/light.hpp>
+#include <xviz/scene/scene.hpp>
 
 #include <iostream>
 
 #include <QTimer>
 #include <QDebug>
+#include <QGuiApplication>
+#include <QDir>
+#include <QPainter>
 
 using namespace std ;
 using namespace xviz ;
@@ -20,6 +25,12 @@ GUI::GUI(World *w): SceneViewer(w->getVisual()),
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
+
+
+    NodePtr circle = NodeHelpers::makeCircle({0, 0.3, 0.01}, {0, 0, 1}, 0.05, {1, 0, 0}) ;
+
+    scene_->addChild(circle) ;
+
     auto world = w->getVisual() ;
     auto robot_node = world->findNodeByName("base_link") ;
 
@@ -28,20 +39,7 @@ GUI::GUI(World *w): SceneViewer(w->getVisual()),
          traj_points_[i] =xviz::NodeHelpers::makeSphere(0.01, Vector4f(0, 0, 1, 1));
          traj_node_->addChild(traj_points_[i]) ;
      }
- #if 0
-     scene_->children()[0]->setVisible(false);
 
-     auto cs = world_->collisionScene() ;
-     KinematicModel &fk = static_cast<UR5Planning *>(world_->iplan())->fk() ;
-
-     fk.setJointState(world_->controller()->getJointState()) ;
-     map<string , Isometry3f> trs = fk.getLinkTransforms();
-     cs->updateTransforms(trs);
-
-     cout << trs["upper_arm_link"].matrix() << endl ;
-
-     scene_->addChild(world_->collisionScene()) ;
- #endif
      scene_->addChild(traj_node_) ;
      traj_node_->setVisible(false) ;
      //    physics.setCollisionFeedback(this);
@@ -55,8 +53,8 @@ GUI::GUI(World *w): SceneViewer(w->getVisual()),
      target_->addDrawable(geom, mat) ;
      robot_node->addChild(target_) ;
 
-     gizmo_.reset(new TransformManipulator(camera_, 0.15)) ;
-     gizmo_->gizmo()->show(true) ;
+     gizmo_.reset(new TransformManipulator(camera_, 0.05)) ;
+     gizmo_->gizmo()->show(false) ;
      gizmo_->gizmo()->setOrder(2) ;
 
      gizmo_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
@@ -64,8 +62,8 @@ GUI::GUI(World *w): SceneViewer(w->getVisual()),
              Isometry3f p = Isometry3f::Identity() ;
              p.translation() = f.translation()  ;
              p.linear() = m ;
+            p.translation() = Vector3f{0, 0.4, 0.05};
 
-             cout << p.translation().adjoint() << endl ;
              JointTrajectory traj ;
              if ( world_->planner()->plan(world_->controller()->getJointState(), p, traj) ) {
                  trajectory(traj) ;
@@ -96,29 +94,65 @@ GUI::GUI(World *w): SceneViewer(w->getVisual()),
     gizmo_->attachTo(target_.get());
     gizmo_->setLocalTransform(true);
 
+    QTimer *timer = new QTimer(this);
+    connect(timer, SIGNAL(timeout()), this, SLOT(updateSensors()));
+    timer->start(30);
+
+    auto cam = world_->camera()->makeVisual(0.5) ;
+    scene_->addChild(cam) ;
+
 
 
 }
 
 void GUI::onUpdate(float delta) {
     SceneViewer::onUpdate(delta) ;
+
     //     vector<ContactResult> results ;
     //    physics.contactPairTest(target_, table_mb->getLink("baseLink"), 0.01, results) ;
 }
 
 void GUI::keyPressEvent(QKeyEvent *event) {
-    if ( event->key() == Qt::Key_Q ) {
- //       robot_.openGripper();
-    } else if ( event->key() == Qt::Key_W ) {
-//        robot_.closeGripper() ;
-    } else if ( event->key() == Qt::Key_L )
-        gizmo_->setLocalTransform(true) ;
-    else if ( event->key() == Qt::Key_G )
-        gizmo_->setLocalTransform(false) ;
+    if ( event->key() == Qt::Key_G ) {
+
+            uint width = 1024, height = 1024 ;
+            OffscreenSurface os(QSize(width, height)) ;
+
+
+            PerspectiveCamera *pcam = new PerspectiveCamera(1, // aspect ratio
+                                                            50*M_PI/180,   // fov
+                                                            0.00001,        // zmin
+                                                            10           // zmax
+                                                            ) ;
+
+
+         //   OrthographicCamera *pcam = new OrthographicCamera(-0.6*r, 0.6*r, 0.6*r, -0.6*r,0.0001, 10*r) ;
+
+            CameraPtr cam(pcam) ;
+
+            cam->setBgColor({1, 0, 0, 1});
+
+            // position camera to look at the center of the object
+
+          //  pcam->viewSphere(c, r) ;
+            pcam->lookAt({0, 0, 2}, {0, 0.5, 0}, {0, 0, 1}) ;
+
+            // set camera viewpot
+
+            pcam->setViewport(width, height)  ;
+
+
+            Renderer rdr ;
+
+            rdr.render(scene_, cam) ;
+            auto im = os.getImage() ;
+            im.saveToPNG("/tmp/im.png") ;
+
+        }
+
     else SceneViewer::keyPressEvent(event) ;
 
     update() ;
-
 }
 
 void GUI::mousePressEvent(QMouseEvent *event) {
@@ -165,14 +199,24 @@ void GUI::updateControls(const JointState &state)
    update() ;
 }
 
-
+bool done = false ;
 void GUI::trajectory(const JointTrajectory &traj) {
+    if ( done ) return ;
     showTrajectory(traj);
     if ( traj_thread_ ) return ;
 
     ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(world_, traj) ;
     connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
-    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){ delete traj_thread_ ; traj_thread_ = nullptr;});
+    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){
+        JointTrajectory mtraj ;
+        delete traj_thread_ ; traj_thread_ = nullptr;
+        world_->disableToolCollisions();
+        if ( world_->planner()->planRelative(world_->controller()->getJointState(), Vector3f{0, 0.2, 0}, mtraj)) {
+            trajectory(mtraj) ;
+            done = true ;
+        }
+        world_->enableToolCollisions();
+    });
     workerThread->start();
     traj_thread_ = workerThread ;
 }
@@ -190,3 +234,16 @@ void GUI::showTrajectory(const xsim::JointTrajectory &traj) {
 
     traj_node_->setVisible(true) ;
 }
+
+void GUI::paintGL()
+{
+    SceneViewer::paintGL() ;
+}
+
+#include "imconv.hpp"
+void GUI::updateSensors() {
+
+    emit imageCaptured(imageToQImage(world_->camera()->capture().second)) ;
+}
+
+

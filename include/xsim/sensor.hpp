@@ -2,6 +2,8 @@
 
 #include <xviz/scene/scene_fwd.hpp>
 #include <xviz/scene/camera.hpp>
+#include <xviz/gui/offscreen.hpp>
+#include <xviz/scene/renderer.hpp>
 #include <xsim/collision.hpp>
 
 #include <Eigen/Geometry>
@@ -14,6 +16,9 @@ namespace xsim {
 class CollisionObject ;
 class PhysicsWorld ;
 
+class SensorEvent ;
+using SensorEventListener = std::function<void(const SensorEvent *)> ;
+
 class Sensor {
 public:
 
@@ -21,33 +26,16 @@ public:
         parent_ = parent ;
     }
 
-    void setPose(const Eigen::Isometry3f &pose) {
+    virtual void setPose(const Eigen::Isometry3f &pose) {
         pose_ = pose ;
     }
 
-    // called when adding a sensor in the world
-    virtual void init(PhysicsWorld &world) {}
+    Eigen::Isometry3f getWorldTransform() const;
 
-    // called when the world is destroyed
-    virtual void destroy(PhysicsWorld &world) {}
-
-    // called by physics thread
-    void update(float ts) ;
+    void setActive(bool v = true) { is_active_ = v ;}
+    bool isActive() const { return is_active_ ; }
 
 protected:
-
-    // override to perform the measurement
-    virtual void doUpdate() = 0;
-
-    Eigen::Isometry3f getWorldTransform() const ;
-
-  private:
-
-    // determine whether we need to update based on the given update interval
-    bool needsUpdate(float ts) ;
-
-
-    float update_interval_ = 0.f, last_update_ = 0.f ;
     bool is_active_ = true ;
     Eigen::Isometry3f pose_ = Eigen::Isometry3f::Identity() ;
     CollisionObject *parent_ = nullptr ;
@@ -55,27 +43,43 @@ protected:
 
 using SensorPtr = std::shared_ptr<Sensor> ;
 
-/*
 
 class CameraSensor: public Sensor {
 public:
-    CameraSensor(CameraPtr camera, NodePtr scene) ;
+    CameraSensor(uint32_t width, uint32_t height, float fovy, float near, float far) ;
 
-    cv::Mat getImage() ;
+    void setScene(const xviz::NodePtr &scene) { scene_ = scene ; }
+
+    xviz::NodePtr makeVisual(float d) const ;
 
 protected:
 
-    virtual void doUpdate() override ;
+    void doCapture() ;
 
-private:
+protected:
 
-    cv::Mat image_ ;
-    CameraPtr camera_ ;
-    NodePtr scene_ ;
-    std::unique_ptr<OffscreenRenderer> renderer_ ;
+    float width_, height_, fov_, near_, far_ ;
+    xviz::NodePtr scene_ ;
+    xviz::CameraPtr camera_ ;
+    xviz::Renderer rdr_ ;
+    std::unique_ptr<xviz::OffscreenSurface> surface_ ;
 };
 
-*/
+class RGBCameraSensor: public CameraSensor {
+public:
+    RGBCameraSensor(uint32_t width, uint32_t height, float fovy, float near, float far) ;
+
+    xviz::Image capture()  ;
+};
+
+class RGBDCameraSensor: public CameraSensor {
+public:
+    RGBDCameraSensor(uint32_t width, uint32_t height, float fovy, float near, float far) ;
+
+    std::pair<xviz::Image, xviz::Image> capture()  ;
+};
+
+
 
 class CollisionSensor: public Sensor {
 public:
@@ -84,10 +88,11 @@ public:
     bool hasCollisions() const { return !collisions_.empty() ; }
     size_t numCollisions() { return collisions_.size() ; }
 
-    void init(PhysicsWorld &world) override;
+    void init(PhysicsWorld &world) ;
+    void testCollision() ;
 
 protected:
-    virtual void doUpdate() override ;
+    void doUpdate()  ;
 
 private:
 

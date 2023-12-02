@@ -46,6 +46,8 @@ add_executable(test_manipulator
     ur5_ik_solver.hpp
     world.cpp
     world.hpp
+    imconv.cpp
+    imconv.hpp
 
     planner.cpp
     planner.hpp
