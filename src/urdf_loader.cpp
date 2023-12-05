@@ -215,12 +215,12 @@ void URDFLoader::parseJoint(const xml_node &node, URDFRobot &rb) {
 
     if ( xml_node parent_node = node.child("parent") ) {
         string link_name = parent_node.attribute("link").as_string() ;
-        j.parent_ = link_name ;
+        j.parent_ = prefix_ + link_name ;
     }
 
     if ( xml_node child_node = node.child("child") ) {
         string link_name = child_node.attribute("link").as_string() ;
-        j.child_ = link_name ;
+        j.child_ = prefix_ + link_name ;
     }
 
 

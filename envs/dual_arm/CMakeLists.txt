@@ -3,12 +3,13 @@ include_directories(${BULLET_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
 
 find_package(Qt5 COMPONENTS Core Gui Network Widgets REQUIRED)
 
-add_executable(push_env
+add_executable(dual_arm
     run_env.cpp
     mainwindow.hpp
     mainwindow.cpp
     bullet_gui.cpp
     bullet_gui.hpp
+    kuka_iiwa_ik_solver.cpp
 #    environment.cpp
 #    environment.hpp
 #    dqn.cpp
@@ -27,5 +28,5 @@ add_executable(push_env
     player.hpp
 
 )
-set_target_properties(push_env PROPERTIES AUTOMOC TRUE)
-target_link_libraries(push_env xsim cvx ${BULLET_LIBRARIES} ${OpenCV_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Network Qt5::Widgets)
+set_target_properties(dual_arm PROPERTIES AUTOMOC TRUE)
+target_link_libraries(dual_arm xsim cvx ${BULLET_LIBRARIES} ${OpenCV_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Network Qt5::Widgets)

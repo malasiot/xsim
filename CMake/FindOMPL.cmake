@@ -19,11 +19,14 @@ if (NOT OMPL_PREFIX)
     set(OMPL_PREFIX $ENV{OMPL_PREFIX})
 endif()
 
+
+
 if (OMPL_FIND_VERSION)
     set(OMPL_SUFFIX "-${OMPL_VERSION}")
 else()
     set(OMPL_SUFFIX "")
 endif()
+
 
 # user can set OMPL_LIB_PATH to specify the path for the OMPL library
 # (analogous to OMPL_PREFIX)
@@ -34,10 +37,12 @@ if (NOT OMPL_LIB_PATH)
     endif()
 endif()
 
+
 # user can set OMPL_INCLUDE_PATH to specify the path for the OMPL include
 # directory (analogous to OMPL_PREFIX)
 if (NOT OMPL_INCLUDE_PATH)
     set(OMPL_INCLUDE_PATH $ENV{OMPL_INCLUDE_PATH})
+
     if (NOT OMPL_INCLUDE_PATH)
         set(OMPL_INCLUDE_PATH ${OMPL_PREFIX})
     endif()
@@ -49,7 +54,9 @@ find_library(OMPL_LIBRARY ompl
     PATH_SUFFIXES lib build/lib)
 if (OMPL_LIBRARY)
     if (OMPL_FIND_VERSION)
+
         get_filename_component(libpath ${OMPL_LIBRARY} PATH)
+
         file(GLOB OMPL_LIBS "${libpath}/libompl.${OMPL_FIND_VERSION}.*")
         list(GET OMPL_LIBS -1 OMPL_LIBRARY)
     endif()
@@ -83,6 +90,8 @@ if (OMPL_INCLUDE_DIRS)
 else()
     set(OMPL_INCLUDE_DIRS "")
 endif()
+
+
 
 find_path(EIGEN_INCLUDE_DIRS Eigen/Core
     PATHS ${OMPL_INCLUDE_PATH}

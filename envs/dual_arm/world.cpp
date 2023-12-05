@@ -1,7 +1,8 @@
 #include "world.hpp"
 #include "robot.hpp"
-#include "ur5_ik_solver.hpp"
+#include "kuka_iiwa_ik_solver.hpp"
 #include "planning_interface.hpp"
+#include <xsim/kinematic.hpp>
 
 #include <xsim/collision_space.hpp>
 #include <xsim/robot_scene.hpp>
@@ -124,17 +125,10 @@ void World::createScene() {
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
 
 
-    URDFRobot r1 = URDFRobot::load(params_.model_path_, "r1_") ;
+    URDFRobot r1 = URDFRobot::load(params_.model_path_) ;
 
-  /*   pusher_ = addMultiBody(MultiBodyBuilder(pusher)
-                              .setName("pusher")
-                              .setFixedBase()
-                              .setMargin(0.01)
-                              .setLinearDamping(0.f)
-                              .setAngularDamping(0.f)
-                            .setWorldTransform(pusher_orig_)
-                              ) ;
-*/
+    r1.setJointPosition("joint_a2", -0.34);
+    r1.setJointPosition("joint_a4", 0.7);
 
     r1_orig_.setIdentity() ;
 
@@ -146,6 +140,29 @@ void World::createScene() {
                            .setAngularDamping(0.f)
                            .setWorldTransform(r1_orig_)
                        ) ;
+
+    r1_->setJointPosition("joint_a2", -0.34);
+    r1_->setJointPosition("joint_a4", 0.7);
+
+    JointState js ;
+    js["joint_a2"] = -0.34 ;
+    js["joint_a4"] = 0.7 ;
+    KukaIKSolver solver ;
+    auto pose = solver.forward(js) ;
+
+    Matrix4f tpose ;
+    tpose << 1, 0, 0, 0,
+            0, 1, 0, 0,
+            0, 0, 1, 0.5,
+            0, 0, 0, 1 ;
+
+    cout << pose.matrix() << endl ;
+    std::vector<xsim::JointState> jss ;
+    solver.solve(Isometry3f(pose), 0.5, jss) ;
+
+    KinematicModel model(r1) ;
+
+    auto p = model.getLinkTransforms();
 
     collisions_->addRobot(r1, 0.01) ;
 

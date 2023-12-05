@@ -2,6 +2,7 @@
 #define XSIM_PHYSICS_RIGID_BODY_HPP
 
 #include <memory>
+#include <optional>
 #include <xviz/scene/scene_fwd.hpp>
 
 #include <bullet/btBulletCollisionCommon.h>
