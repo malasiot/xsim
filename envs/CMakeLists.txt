@@ -1,1 +1,1 @@
-add_subdirectory(push)
+add_subdirectory(dual_arm)
