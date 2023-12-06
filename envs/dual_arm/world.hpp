@@ -43,17 +43,21 @@ public:
 
     void setJointState(Robot r, const xsim::JointState &state) {
         for( const auto &jn: KukaIKSolver::s_joint_names ) {
-            auto it = state.find(jn) ;
+            std::string joint_name = ( r == R1 ) ? "r1_" : "r2_" ;
+            joint_name += jn ;
+            auto it = state.find(joint_name) ;
             if ( it != state.end() )
-                controller(r)->setJointPosition(jn, it->second);
+                controller(r)->setJointPosition(joint_name, it->second);
         }
     }
 
     xsim::JointState getJointState(Robot r) const {
         xsim::JointState state ;
         for( const auto &jn: KukaIKSolver::s_joint_names ) {
-            double v = controller(r)->getJointPosition(jn) ;
-            state.emplace(jn, v) ;
+            std::string joint_name = ( r == R1 ) ? "r1_" : "r2_" ;
+            joint_name += jn ;
+            double v = controller(r)->getJointPosition(joint_name) ;
+            state.emplace(joint_name, v) ;
         }
         return state ;
     }
@@ -64,18 +68,20 @@ public:
         return ( r == R1 ) ? r1_ : r2_ ;
     }
 
-    bool isStateValid(const xsim::JointState &js) ;
+    bool isStateValid(const xsim::JointState &js1, const xsim::JointState &js2) ;
 
+    const Eigen::Isometry3f &r1Origin() const { return r1_orig_ ; }
+    const Eigen::Isometry3f &r2Origin() const { return r2_orig_ ; }
 
 private:
     xsim::RigidBodyPtr table_rb_ ;
     std::vector<xsim::RigidBodyPtr> boxes_ ;
 
     std::vector<Eigen::Isometry3f> orig_trs_ ;
-    Eigen::Isometry3f r1_orig_ ;
+    Eigen::Isometry3f r1_orig_, r2_orig_ ;
 
     std::shared_ptr<xsim::CollisionSpace> collisions_ ;
-    std::unique_ptr<xsim::KinematicModel> kinematics_ ;
+    std::unique_ptr<xsim::KinematicModel> kinematics_r1_, kinematics_r2_ ;
     Parameters params_ ;
 
 private:

@@ -32,7 +32,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
     auto viz = world->getVisual() ;
-    auto robot_node = viz->findNodeByName("iiwa_base") ;
+    auto robot1_node = viz->findNodeByName("r1_iiwa_base") ;
 
     timer_ = new QTimer(this);
     connect(timer_, &QTimer::timeout, this, &GUI::grabScreen);
@@ -41,37 +41,40 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
 
     Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
 
-    target_.reset(new Node) ;
+    target1_.reset(new Node) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
     PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
     MaterialPtr mat(material) ;
-    target_->addDrawable(geom, mat) ;
-    robot_node->addChild(target_) ;
+    target1_->addDrawable(geom, mat) ;
+    robot1_node->addChild(target1_) ;
 
-    gizmo_.reset(new TransformManipulator(camera_, 0.05)) ;
-    gizmo_->gizmo()->show(true) ;
-    gizmo_->gizmo()->setOrder(2) ;
+    gizmo1_.reset(new TransformManipulator(camera_, 0.05)) ;
+    gizmo1_->gizmo()->show(true) ;
+    gizmo1_->gizmo()->setOrder(2) ;
 
-    gizmo_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
+    gizmo1_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
             p.linear() = m ;
           //  p.translation() = Vector3f{0, 0.45, 0.05};
 
+
             KukaIKSolver solver ;
 
-            KukaIKSolver::Problem ik(p) ;
+            KukaIKSolver::Problem ik(p ) ;
+
+            string prefix("r1_") ;
 
             std::vector<JointCoeffs> solutions ;
             if ( solver.solve(ik,  solutions) ) {
                 for( const auto solution: solutions ) {
                     JointState state ;
                     for( uint j=0 ; j<7 ; j++ ) {
-                        state.emplace(KukaIKSolver::s_joint_names[j], solution[j]) ;
+                        state.emplace(prefix + KukaIKSolver::s_joint_names[j], solution[j]) ;
                     }
 
-                    if ( world_->isStateValid(state) ) {
+                    if ( world_->isStateValid(state, world_->getJointState(World::R2)) ) {
                         world_->setJointState(World::R1, state) ;
                          world_->stepSimulation(0.05);
                          break ;
@@ -87,8 +90,59 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     });
 
 
-    gizmo_->attachTo(target_.get());
-    gizmo_->setLocalTransform(true);
+    gizmo1_->attachTo(target1_.get());
+    gizmo1_->setLocalTransform(true);
+
+    auto robot2_node = viz->findNodeByName("r2_iiwa_base") ;
+
+    target2_.reset(new Node) ;
+    target2_->addDrawable(geom, mat) ;
+    robot2_node->addChild(target2_) ;
+
+    gizmo2_.reset(new TransformManipulator(camera_, 0.05)) ;
+    gizmo2_->gizmo()->show(true) ;
+    gizmo2_->gizmo()->setOrder(2) ;
+
+    gizmo2_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
+        if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
+            Isometry3f p = Isometry3f::Identity() ;
+            p.translation() = f.translation()  ;
+            p.linear() = m ;
+          //  p.translation() = Vector3f{0, 0.45, 0.05};
+
+
+            KukaIKSolver solver ;
+
+            KukaIKSolver::Problem ik(p ) ;
+
+            string prefix("r2_") ;
+
+            std::vector<JointCoeffs> solutions ;
+            if ( solver.solve(ik,  solutions) ) {
+                for( const auto solution: solutions ) {
+                    JointState state ;
+                    for( uint j=0 ; j<7 ; j++ ) {
+                        state.emplace(prefix + KukaIKSolver::s_joint_names[j], solution[j]) ;
+                    }
+
+                    if ( world_->isStateValid( world_->getJointState(World::R1), state) ) {
+                        world_->setJointState(World::R2, state) ;
+                         world_->stepSimulation(0.05);
+                         break ;
+                    }
+                }
+            }
+        } else if ( e == TRANSFORM_MANIP_MOVING ) {
+            //          cout << f.translation().adjoint() << endl ;
+        }
+
+
+
+    });
+
+
+    gizmo2_->attachTo(target2_.get());
+    gizmo2_->setLocalTransform(true);
 
 }
 
@@ -118,7 +172,12 @@ void GUI::onUpdate(float delta) {
 }
 
 void GUI::mousePressEvent(QMouseEvent *event) {
-    if ( gizmo_->onMousePressed(event) ) {
+    if ( gizmo1_->onMousePressed(event) ) {
+        update() ;
+        return ;
+    }
+
+    if ( gizmo2_->onMousePressed(event) ) {
         update() ;
         return ;
     }
@@ -127,7 +186,12 @@ void GUI::mousePressEvent(QMouseEvent *event) {
 }
 
 void GUI::mouseReleaseEvent(QMouseEvent *event) {
-    if ( gizmo_->onMouseReleased(event) ) {
+    if ( gizmo1_->onMouseReleased(event) ) {
+        update() ;
+        return ;
+    }
+
+    if ( gizmo2_->onMouseReleased(event) ) {
         update() ;
         return ;
     }
@@ -136,11 +200,15 @@ void GUI::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void GUI::mouseMoveEvent(QMouseEvent *event) {
-    if ( gizmo_->onMouseMoved(event) ) {
+    if ( gizmo1_->onMouseMoved(event) ) {
         update() ;
         return ;
     }
 
+    if ( gizmo2_->onMouseMoved(event) ) {
+        update() ;
+        return ;
+    }
     SceneViewer::mouseMoveEvent(event) ;
 }
 

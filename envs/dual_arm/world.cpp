@@ -119,12 +119,17 @@ void World::execute(const Eigen::Isometry3f &orig, float t1, float t2, float spe
 
 }
 
-bool World::isStateValid(const xsim::JointState &state)
+bool World::isStateValid(const xsim::JointState &state1, const JointState &state2)
 {
-    kinematics_->setJointState(state) ;
+    kinematics_r1_->setJointState(state1) ;
 
-    map<string, Isometry3f> trs = kinematics_->getLinkTransforms() ;
-    collisions_->updateObjectTransforms(trs) ;
+    map<string, Isometry3f> trs1 = kinematics_r1_->getLinkTransforms() ;
+    collisions_->updateObjectTransforms(trs1) ;
+
+    kinematics_r2_->setJointState(state2) ;
+
+    map<string, Isometry3f> trs2 = kinematics_r2_->getLinkTransforms() ;
+    collisions_->updateObjectTransforms(trs2) ;
 
     return !collisions_->hasCollision() ;
 }
@@ -134,12 +139,15 @@ void World::createScene() {
     table_cs->setMargin(0) ;
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
 
-    URDFRobot r1 = URDFRobot::load(params_.model_path_) ;
-
-    r1.setJointPosition("joint_a2", -0.34);
-    r1.setJointPosition("joint_a4", 0.7);
-
     r1_orig_.setIdentity() ;
+    r1_orig_.translate(Vector3f{-0.25, 0, 0});
+
+    r2_orig_.setIdentity() ;
+    r2_orig_.translate(Vector3f{0.25, 0, 0});
+
+    URDFRobot r1 = URDFRobot::load(params_.model_path_, "r1_") ;
+    r1.setWorldTransform(r1_orig_);
+
 
     r1_ = addMultiBody(MultiBodyBuilder(r1)
                            .setName("r1")
@@ -147,20 +155,34 @@ void World::createScene() {
                            .setMargin(0.01)
                            .setLinearDamping(0.f)
                            .setAngularDamping(0.f)
-                           .setWorldTransform(r1_orig_)
+                    //       .setWorldTransform(r1_orig_)
                        ) ;
 
-    r1_->setJointPosition("joint_a2", -0.34);
-    r1_->setJointPosition("joint_a4", 0.7);
-
-    kinematics_.reset(new KinematicModel(r1)) ;
+    kinematics_r1_.reset(new KinematicModel(r1)) ;
 
 
-    collisions_->disableCollision("link_0", "table");
-
+    collisions_->disableCollision("r1_link_0", "table");
 
     collisions_->addRobot(r1, 0.01) ;
 
+    URDFRobot r2 = URDFRobot::load(params_.model_path_, "r2_") ;
+    r2.setWorldTransform(r2_orig_);
+
+
+    r2_ = addMultiBody(MultiBodyBuilder(r2)
+                           .setName("r2")
+                           .setFixedBase()
+                           .setMargin(0.01)
+                           .setLinearDamping(0.f)
+                           .setAngularDamping(0.f)
+                    //       .setWorldTransform(r1_orig_)
+                       ) ;
+
+    kinematics_r2_.reset(new KinematicModel(r2)) ;
+
+    collisions_->disableCollision("r2_link_0", "table");
+
+    collisions_->addRobot(r2, 0.01) ;
     collisions_->addCollisionObject("table", table_cs, table_tr);
 
 

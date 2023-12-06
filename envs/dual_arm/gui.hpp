@@ -78,9 +78,9 @@ signals:
 private:
 
 
-    xviz::NodePtr target_ ;
+    xviz::NodePtr target1_, target2_ ;
     World *world_ ;
-    std::shared_ptr<xviz::TransformManipulator> gizmo_;
+    std::shared_ptr<xviz::TransformManipulator> gizmo1_, gizmo2_;
 
     QTimer *timer_ ;
     int64_t count_ ;
