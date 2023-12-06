@@ -119,11 +119,20 @@ void World::execute(const Eigen::Isometry3f &orig, float t1, float t2, float spe
 
 }
 
+bool World::isStateValid(const xsim::JointState &state)
+{
+    kinematics_->setJointState(state) ;
+
+    map<string, Isometry3f> trs = kinematics_->getLinkTransforms() ;
+    collisions_->updateObjectTransforms(trs) ;
+
+    return !collisions_->hasCollision() ;
+}
+
 void World::createScene() {
     CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{params_.table_width_/2.0, params_.table_height_/2.0, 0.001})) ;
     table_cs->setMargin(0) ;
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
-
 
     URDFRobot r1 = URDFRobot::load(params_.model_path_) ;
 
@@ -144,29 +153,16 @@ void World::createScene() {
     r1_->setJointPosition("joint_a2", -0.34);
     r1_->setJointPosition("joint_a4", 0.7);
 
-    JointState js ;
-    js["joint_a2"] = -0.34 ;
-    js["joint_a4"] = 0.7 ;
-    KukaIKSolver solver ;
-    auto pose = solver.forward(js) ;
+    kinematics_.reset(new KinematicModel(r1)) ;
 
-    Matrix4f tpose ;
-    tpose << 1, 0, 0, 0,
-            0, 1, 0, 0,
-            0, 0, 1, 0.5,
-            0, 0, 0, 1 ;
 
-    cout << pose.matrix() << endl ;
-    std::vector<xsim::JointState> jss ;
-    solver.solve(Isometry3f(pose), 0.5, jss) ;
+    collisions_->disableCollision("link_0", "table");
 
-    KinematicModel model(r1) ;
-
-    auto p = model.getLinkTransforms();
 
     collisions_->addRobot(r1, 0.01) ;
 
     collisions_->addCollisionObject("table", table_cs, table_tr);
+
 
     table_rb_ = addRigidBody(RigidBodyBuilder()
                              .setCollisionShape(table_cs)
@@ -216,7 +212,7 @@ void World::createScene() {
             orig_trs_.emplace_back(box_tr) ;
 
             collisions_->disableCollision("table", name);
-            collisions_->addCollisionObject(name, box_cs2, box_tr);
+          //  collisions_->addCollisionObject(name, box_cs2, box_tr);
 
             box_names.emplace_back(name) ;
         }
@@ -227,6 +223,9 @@ void World::createScene() {
             collisions_->disableCollision(ba, bb);
         }
     }
+
+
+
 
 
 

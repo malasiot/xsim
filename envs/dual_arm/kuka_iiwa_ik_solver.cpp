@@ -2,10 +2,12 @@
 #include <Eigen/Geometry>
 #include <cassert>
 
+#include <cvx/math/rng.hpp>
+
 using namespace Eigen ;
 using namespace std ;
 
-#define UR5_PARAMS
+static cvx::RNG rng_ ;
 
 const char *KukaIKSolver::s_joint_names[7] = {
     "joint_a1",
@@ -33,9 +35,9 @@ static Matrix4d dh_calc(double a, double alpha, double d, double theta) {
 
     Matrix4d tmp ;
     tmp << Xx, Yx, Zx, v.x(),
-           Xy, Yy, Zy, v.y(),
-           Xz, Yz, Zz, v.z(),
-           0,  0,  0,  1;
+        Xy, Yy, Zy, v.y(),
+        Xz, Yz, Zz, v.z(),
+        0,  0,  0,  1;
     return tmp ;
 }
 
@@ -69,9 +71,9 @@ Isometry3d KukaIKSolver::forward(const xsim::JointState &state) {
 
         Matrix4d tmp ;
         tmp << Xx, Yx, Zx, v.x(),
-               Xy, Yy, Zy, v.y(),
-               Xz, Yz, Zz, v.z(),
-               0,  0,  0,  1;
+            Xy, Yy, Zy, v.y(),
+            Xz, Yz, Zz, v.z(),
+            0,  0,  0,  1;
 
         if ( i == 0 )
             tr[i] = tmp;
@@ -123,12 +125,12 @@ static const uint J_CONF_ARM = 1 ;
 static const uint J_CONF_ELBOW = 2 ;
 static const uint J_CONF_WRIST = 4 ;
 
-bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double psi, vector<xsim::JointState> &solutions) {
+bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double psi, vector<JointCoeffs> &solutions) {
     for( uint r = 0 ; r < 8 ; r ++ ) {
-        double js[7] ;
+        JointCoeffs js ;
         if ( solve(target, psi, r, js) &&
-             checkLimits(js) ) {
-            solutions.push_back(makeJointState(js)) ;
+            checkLimits(js) ) {
+            solutions.push_back(js) ;
         }
     }
 
@@ -136,7 +138,7 @@ bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double psi, vector<xsi
 }
 
 static bool getReferencePlane( const Matrix4d &pose, int elbow,
-                       Vector3d &ref_plane_vector, Matrix3d &rot_base_elbow, double joints[7] ) {
+                              Vector3d &ref_plane_vector, Matrix3d &rot_base_elbow, double joints[7] ) {
 
     Matrix4d smat[3] = {Matrix4d::Zero()}, wmat[3] = {Matrix4d::Zero()};
     Vector3d xend = pose.block<3, 1>(0, 3) ; // end-effector position from base
@@ -229,12 +231,12 @@ static Matrix3d skew(const Vector3d &v) {
     Matrix3d r ;
 
     r << 0, -v[2], v[1],
-         v[2], 0, -v[0],
-         -v[1], v[0], 0 ;
+        v[2], 0, -v[0],
+        -v[1], v[0], 0 ;
     return r ;
 }
 
-bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double nsparam, uint rconf, double joints[7])
+bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double nsparam, uint rconf, JointCoeffs &joints)
 {
     Matrix4d pose = target.matrix().cast<double>() ;
 
@@ -319,7 +321,7 @@ bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double nsparam, uint r
     return true ;
 }
 
-bool KukaIKSolver::checkLimits(double js[7])
+bool KukaIKSolver::checkLimits(const JointCoeffs &js)
 {
     for( uint i=0 ; i<7 ; i++ ) {
         if ( js[i] < limits_min_[i] ) return false ;
@@ -333,6 +335,51 @@ double jvalue(const xsim::JointState &s, const std::string &name) {
     assert(it != s.end()) ;
     return it->second ;
 }
+
+bool KukaIKSolver::solve(const Problem &pr, std::vector<JointCoeffs> &solutions)
+{
+    vector<JointCoeffs> sol ;
+
+    if ( pr.has_psi_ ) {
+        solve(pr.target_, pr.psi_, sol) ;
+    } else {
+        for( uint i=0 ; i<pr.n_psi_ ; i++ ) {
+            double psi = rng_.uniform(-M_PI, M_PI) ;
+            solve(pr.target_, psi, sol) ;
+        }
+    }
+
+    if ( sol.empty() ) return false ;
+
+    if ( !pr.has_seed_ ) {
+        solutions = sol ;
+        return !solutions.empty() ;
+    } else {
+
+        // use weighted absolute deviations to determine the solution closest the seed state
+        std::vector<idx_double> weighted_diffs;
+        for(uint16_t i=0; i<sol.size(); i++) {
+            double cur_weighted_diff = 0;
+            for(uint16_t j=0; j<7; j++) {
+
+                // solution violates the consistency_limits, throw it out
+                double abs_diff = std::fabs(pr.seed_[j] - sol[i][j]);
+                cur_weighted_diff += abs_diff;
+            }
+            weighted_diffs.push_back(idx_double(i, cur_weighted_diff));
+        }
+
+        std::sort(weighted_diffs.begin(), weighted_diffs.end(), comparator);
+
+        int cur_idx = weighted_diffs[0].first;
+        auto solution = sol[cur_idx];
+
+        solutions.emplace_back(solution) ;
+
+        return true ;
+    }
+}
+/*
 bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double psi, const xsim::JointState &seed, xsim::JointState &solution)
 {
     vector<xsim::JointState> solutions ;
@@ -359,3 +406,4 @@ bool KukaIKSolver::solve(const Eigen::Isometry3f &target, double psi, const xsim
 
     return true ;
 }
+*/

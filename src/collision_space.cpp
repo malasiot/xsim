@@ -224,7 +224,7 @@ bool CollisionSpace::hasCollision() {
         int numContacts = contactManifold->getNumContacts();
 
         if ( numContacts > 0 ) {
-    //        cout << "collision: " << coA->name_ << ' ' << coB->name_ << ' ' << numContacts << endl ;
+            cout << "collision: " << coA->name_ << ' ' << coB->name_ << ' ' << numContacts << endl ;
             return true ;
         }
 

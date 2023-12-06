@@ -2,7 +2,7 @@
 #include "robot.hpp"
 #include "mainwindow.hpp"
 #include "world.hpp"
-#include "planning_interface.hpp"
+#include "kuka_iiwa_ik_solver.hpp"
 
 #include <iostream>
 
@@ -27,25 +27,72 @@ using namespace xviz ;
 using namespace xsim ;
 using namespace Eigen ;
 
-GUI::GUI(Player *player): SimulationGui(player->world()), player_(player) {
-    server_ = new QTcpServer(this) ;
-    if ( !server_->listen(QHostAddress(QHostAddress::LocalHost), 7000)) {
-        qDebug() << QString("Unable to start the server: %1.").arg(server_->errorString());
-        server_->close();
-    }
-
-    connect(server_, &QTcpServer::newConnection, this, &GUI::newConnection);
+GUI::GUI(World *world): SimulationGui(world), world_(world) {
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
-    qRegisterMetaType<State>();
+    auto viz = world->getVisual() ;
+    auto robot_node = viz->findNodeByName("iiwa_base") ;
 
     timer_ = new QTimer(this);
     connect(timer_, &QTimer::timeout, this, &GUI::grabScreen);
     count_ = 0;
     title_ = MainWindow::instance()->windowTitle() ;
 
+    Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
+
+    target_.reset(new Node) ;
+    GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
+    PhongMaterial *material = new PhongMaterial({1, 0, 1}, 0.5) ;
+    MaterialPtr mat(material) ;
+    target_->addDrawable(geom, mat) ;
+    robot_node->addChild(target_) ;
+
+    gizmo_.reset(new TransformManipulator(camera_, 0.05)) ;
+    gizmo_->gizmo()->show(true) ;
+    gizmo_->gizmo()->setOrder(2) ;
+
+    gizmo_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
+        if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
+            Isometry3f p = Isometry3f::Identity() ;
+            p.translation() = f.translation()  ;
+            p.linear() = m ;
+          //  p.translation() = Vector3f{0, 0.45, 0.05};
+
+            KukaIKSolver solver ;
+
+            KukaIKSolver::Problem ik(p) ;
+
+            std::vector<JointCoeffs> solutions ;
+            if ( solver.solve(ik,  solutions) ) {
+                for( const auto solution: solutions ) {
+                    JointState state ;
+                    for( uint j=0 ; j<7 ; j++ ) {
+                        state.emplace(KukaIKSolver::s_joint_names[j], solution[j]) ;
+                    }
+
+                    if ( world_->isStateValid(state) ) {
+                        world_->setJointState(World::R1, state) ;
+                         world_->stepSimulation(0.05);
+                         break ;
+                    }
+                }
+            }
+        } else if ( e == TRANSFORM_MANIP_MOVING ) {
+            //          cout << f.translation().adjoint() << endl ;
+        }
+
+
+
+    });
+
+
+    gizmo_->attachTo(target_.get());
+    gizmo_->setLocalTransform(true);
+
 }
+
+
 
 void GUI::setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius)
 {
@@ -70,118 +117,33 @@ void GUI::onUpdate(float delta) {
     //    physics.contactPairTest(target_, table_mb->getLink("baseLink"), 0.01, results) ;
 }
 
-
-void GUI::handleRequest(QTcpSocket *socket, const QJsonObject &req) {
-    QString req_key = req["request"].toString() ;
-
-    if ( req_key == "reset" ) {
-        player_->reset() ;
-
-        QJsonObject resp ;
-
-        auto state = player_->getState() ;
-
-        resp.insert("state", stateToJson(state)) ;
-
-        QJsonArray feasible ;
-        for( int64_t action_idx: player_->getFeasibleActions(state) )
-            feasible.append(qint64(action_idx)) ;
-        resp.insert("feasible", feasible) ;
-
-        writeResponse(socket, resp) ;
-    } else if ( req_key == "step" ) {
-        int64_t action_id = req["action"].toInt() ;
-        ExecuteStepThread *workerThread = new ExecuteStepThread(player_, action_id) ;
-        connect(workerThread, &ExecuteStepThread::updateScene, this, [this]() { update();});
-        connect(workerThread, &ExecuteStepThread::finished, workerThread, &ExecuteStepThread::deleteLater);
-        connect(workerThread, &ExecuteStepThread::finishedStep, this,
-                [this, socket](const State &state, bool done) {
-            if ( !socket || !socket->isValid() ) return ;
-            QJsonObject o = stateToJson(state);
-            QJsonObject response ;
-            response.insert("state", o) ;
-            response.insert("done", done) ;
-
-            QJsonArray feasible ;
-            for( int64_t action_idx: player_->getFeasibleActions(state) )
-                feasible.append(qint64(action_idx)) ;
-            response.insert("feasible", feasible) ;
-
-            writeResponse(socket, response);
-        });
-        workerThread->start();
-    } else if ( req_key == "info" ) {
-        QJsonObject info ;
-        info.insert("boxes", (int)player_->numBoxes()) ;
-        info.insert("actions", (int)player_->numActions()) ;
-        auto state = player_->getState() ;
-        info.insert("state", stateToJson(state)) ;
-        writeResponse(socket, info);
+void GUI::mousePressEvent(QMouseEvent *event) {
+    if ( gizmo_->onMousePressed(event) ) {
+        update() ;
+        return ;
     }
 
+    SceneViewer::mousePressEvent(event) ;
 }
 
-void GUI::readRequest() {
-    QTcpSocket* socket = static_cast<QTcpSocket*>(QObject::sender());
-    QByteArray &buffer = connections_[socket] ;
-
-    QByteArray data = socket->readAll() ;
-
-    if ( !data.isEmpty() )
-        buffer.append(data) ;
-
-    if ( !buffer.endsWith(';') ) return ;
-
-    QJsonDocument doc = QJsonDocument::fromJson(buffer.chopped(1));
-
-    QJsonObject req ;
-    if ( !doc.isNull()  && doc.isObject() ) {
-        req = doc.object() ;
-    } else {
-
-        qDebug() << "Invalid JSON...\n" << data << endl;
+void GUI::mouseReleaseEvent(QMouseEvent *event) {
+    if ( gizmo_->onMouseReleased(event) ) {
+        update() ;
+        return ;
     }
 
-    if ( !req.isEmpty() ) {
-        handleRequest(socket, req) ;
-    }
+    SceneViewer::mouseReleaseEvent(event) ;
 }
 
-void GUI::writeResponse(QTcpSocket *socket, const QJsonObject &resp) {
-
-    socket->write(QJsonDocument(resp).toJson(QJsonDocument::Compact).append(";"));
-
-    socket->flush();
-
-    socket->waitForBytesWritten(3000);
-
-    socket->close();
-}
-
-QJsonObject GUI::stateToJson(const State &state) {
-    QJsonObject o ;
-    o.insert("type", state.toString().c_str()) ;
-
-    QJsonArray boxes ;
-    for( const auto &bs: state.boxes_ ) {
-        QJsonObject so ;
-        so.insert("x", bs.cx_) ;
-        so.insert("y", bs.cy_) ;
-        so.insert("theta", bs.theta_) ;
-        so.insert("name", bs.name_.c_str()) ;
-        boxes.append(so) ;
+void GUI::mouseMoveEvent(QMouseEvent *event) {
+    if ( gizmo_->onMouseMoved(event) ) {
+        update() ;
+        return ;
     }
 
-    o.insert("boxes", boxes) ;
-    return o ;
+    SceneViewer::mouseMoveEvent(event) ;
 }
 
-void GUI::onSocketStateChanged(QAbstractSocket::SocketState socketState) {
-    if (socketState == QAbstractSocket::UnconnectedState)  {
-        QTcpSocket* sender = static_cast<QTcpSocket*>(QObject::sender());
-        connections_.remove(sender);
-    }
-}
 
 void GUI::startRecording() {
     stopRecording() ;
@@ -221,14 +183,6 @@ void GUI::stopRecording() {
     MainWindow::instance()->setWindowTitle(title_);
 }
 
-
-void GUI::newConnection() {
-    QTcpSocket *socket = server_->nextPendingConnection() ;
-    connect(socket, SIGNAL(readyRead()), this, SLOT(readRequest()));
-    connect(socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(onSocketStateChanged(QAbstractSocket::SocketState)));
-    connections_.insert(socket, QByteArray());
-    connect(socket, &QAbstractSocket::disconnected, socket, &QObject::deleteLater);
-}
 
 void GUI::keyPressEvent(QKeyEvent *event) {
     int key = event->key() ;

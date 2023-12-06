@@ -11,6 +11,8 @@
 
 #include <iostream>
 
+#include <xviz/gui/manipulator.hpp>
+
 class QTcpServer ;
 
 Q_DECLARE_METATYPE(State)
@@ -48,7 +50,7 @@ protected:
 class GUI: public SimulationGui {
     Q_OBJECT
 public:
-    GUI(Player *p);
+    GUI(World *p);
 
     void setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius) ;
     void setGrabFramePath(const QString &path) {
@@ -57,18 +59,17 @@ public:
 
     void onUpdate(float delta) override;
 
-    void handleRequest(QTcpSocket *, const QJsonObject &);
-    void writeResponse(QTcpSocket *, const QJsonObject &) ;
-    QJsonObject stateToJson(const State &state) ;
 
    void keyPressEvent(QKeyEvent *event) override;
 
+    void mousePressEvent(QMouseEvent *event) override;
+
+    void mouseReleaseEvent(QMouseEvent * event) override;
+
+    void mouseMoveEvent(QMouseEvent *event) override;
+
 private slots:
     void grabScreen();
-    void newConnection() ;
-    void readRequest() ;
-    void onSocketStateChanged(QAbstractSocket::SocketState socketState);
-
     void startRecording() ;
     void stopRecording() ;
 signals:
@@ -76,9 +77,11 @@ signals:
     void recoringStopped() ;
 private:
 
-    QTcpServer *server_ ;
-    Player *player_ ;
-    QMap<QTcpSocket *, QByteArray> connections_ ;
+
+    xviz::NodePtr target_ ;
+    World *world_ ;
+    std::shared_ptr<xviz::TransformManipulator> gizmo_;
+
     QTimer *timer_ ;
     int64_t count_ ;
     QString grab_frame_path_, title_ ;

@@ -4,6 +4,8 @@
 #include <xsim/collision_space.hpp>
 #include <cvx/misc/variant.hpp>
 
+#include "kuka_iiwa_ik_solver.hpp"
+
 class Robot ;
 class UR5Planning ;
 
@@ -21,6 +23,8 @@ public:
         float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.55 ;
     };
 
+    enum Robot { R1, R2 } ;
+
     World(const Parameters &params) ;
 
     std::map<std::string, Eigen::Isometry3f> getBoxTransforms() const ;
@@ -37,7 +41,31 @@ public:
     xsim::CollisionSpace *collisions() { return collisions_.get() ; }
     const Parameters &params() const { return params_ ; }
 
+    void setJointState(Robot r, const xsim::JointState &state) {
+        for( const auto &jn: KukaIKSolver::s_joint_names ) {
+            auto it = state.find(jn) ;
+            if ( it != state.end() )
+                controller(r)->setJointPosition(jn, it->second);
+        }
+    }
+
+    xsim::JointState getJointState(Robot r) const {
+        xsim::JointState state ;
+        for( const auto &jn: KukaIKSolver::s_joint_names ) {
+            double v = controller(r)->getJointPosition(jn) ;
+            state.emplace(jn, v) ;
+        }
+        return state ;
+    }
+
     xsim::MultiBodyPtr r1_, r2_ ;
+
+    xsim::MultiBodyPtr controller(Robot r) const {
+        return ( r == R1 ) ? r1_ : r2_ ;
+    }
+
+    bool isStateValid(const xsim::JointState &js) ;
+
 
 private:
     xsim::RigidBodyPtr table_rb_ ;
@@ -47,6 +75,7 @@ private:
     Eigen::Isometry3f r1_orig_ ;
 
     std::shared_ptr<xsim::CollisionSpace> collisions_ ;
+    std::unique_ptr<xsim::KinematicModel> kinematics_ ;
     Parameters params_ ;
 
 private:

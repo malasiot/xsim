@@ -51,7 +51,7 @@ int main(int argc, char **argv)
     std::unique_ptr<Player> env(new Player(env_params, world.get())) ;
 
     MainWindow window ;
-    GUI *gui = new GUI(env.get()) ;
+    GUI *gui = new GUI(world.get()) ;
     gui->setTarget(env->params().target_,
                    { env_params.value("target.pos.x", 0.0).as<float>(),
                      env_params.value("target.pos.y", 0.0).as<float>() },
