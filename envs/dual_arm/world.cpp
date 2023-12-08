@@ -139,11 +139,26 @@ void World::createScene() {
     table_cs->setMargin(0) ;
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
 
-    r1_orig_.setIdentity() ;
-    r1_orig_.translate(Vector3f{-0.25, 0, 0});
+ /*   r1_orig_.setIdentity() ;
+    r1_orig_.translate(Vector3f{-0.1, 0, 0.5});
+    r1_orig_.rotate(AngleAxisf(-M_PI/2, Vector3f::UnitY())) ;
+  //  r1_orig_.rotate(AngleAxisf(M_PI, Vector3f::UnitZ())) ;
+
 
     r2_orig_.setIdentity() ;
-    r2_orig_.translate(Vector3f{0.25, 0, 0});
+    r2_orig_.translate(Vector3f{0.1, 0, 0.5});
+    r2_orig_.rotate(AngleAxisf(M_PI/2, Vector3f::UnitY())) ;
+*/
+
+    double l = 0.72 ;
+    r1_orig_.setIdentity() ;
+    r1_orig_.translate(Vector3f{-l/2.0, 0, 0});
+
+
+    r2_orig_.setIdentity() ;
+    r2_orig_.translate(Vector3f{l/2.0, 0, 0});
+
+
 
     URDFRobot r1 = URDFRobot::load(params_.model_path_, "r1_") ;
     r1.setWorldTransform(r1_orig_);

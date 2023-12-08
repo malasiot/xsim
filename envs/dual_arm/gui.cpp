@@ -39,7 +39,8 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     count_ = 0;
     title_ = MainWindow::instance()->windowTitle() ;
 
-    Matrix3f m(AngleAxisf(M_PI, Vector3f::UnitY())) ;
+    Matrix3f m1(AngleAxisf(M_PI/2, Vector3f::UnitY())) ;
+    Matrix3f m2(AngleAxisf(-M_PI/2, Vector3f::UnitY())) ;
 
     target1_.reset(new Node) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
@@ -52,11 +53,11 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     gizmo1_->gizmo()->show(true) ;
     gizmo1_->gizmo()->setOrder(2) ;
 
-    gizmo1_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
+    gizmo1_->setCallback([this, m1](TransformManipulatorEvent e, const Affine3f &f) {
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
-            p.linear() = m ;
+            p.linear() = m1 ;
           //  p.translation() = Vector3f{0, 0.45, 0.05};
 
 
@@ -103,11 +104,11 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     gizmo2_->gizmo()->show(true) ;
     gizmo2_->gizmo()->setOrder(2) ;
 
-    gizmo2_->setCallback([this, m](TransformManipulatorEvent e, const Affine3f &f) {
+    gizmo2_->setCallback([this, m2](TransformManipulatorEvent e, const Affine3f &f) {
         if ( e == TRANSFORM_MANIP_MOTION_ENDED )  {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
-            p.linear() = m ;
+            p.linear() = m2 ;
           //  p.translation() = Vector3f{0, 0.45, 0.05};
 
 
