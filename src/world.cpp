@@ -16,6 +16,7 @@
 #include <bullet/BulletDynamics/Featherstone/btMultiBodyDynamicsWorld.h>
 #include <bullet/BulletSoftBody/btSoftMultiBodyDynamicsWorld.h>
 
+#include <xsim/sdf_parser.hpp>
 
 using namespace std ;
 using namespace Eigen ;
@@ -264,6 +265,11 @@ void PhysicsWorld::resetSimulation() {
     dynamics_world_->clearForces();
     broadphase_->resetPool(dispatcher_.get());
 
+}
+
+void PhysicsWorld::initFromSDF(const std::string &sdf_file_path) {
+    SDFWorld world ;
+    world.parse(sdf_file_path) ;
 }
 
 PhysicsWorld::~PhysicsWorld()

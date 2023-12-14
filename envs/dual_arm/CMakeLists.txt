@@ -30,3 +30,6 @@ add_executable(dual_arm
 )
 set_target_properties(dual_arm PROPERTIES AUTOMOC TRUE)
 target_link_libraries(dual_arm xsim cvx ${BULLET_LIBRARIES} ${OpenCV_LIBRARIES} Qt5::Core Qt5::Gui Qt5::Network Qt5::Widgets)
+
+add_executable(reachability reachability.cpp kuka_iiwa_ik_solver.cpp)
+target_link_libraries(reachability xsim cvx ${BULLET_LIBRARIES})

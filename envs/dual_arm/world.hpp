@@ -14,13 +14,13 @@ public:
     struct Parameters {
         Parameters(const cvx::Variant &config) ;
 
-        Eigen::Vector3f box_sz_ = { 0.05, 0.05, 0.05 } ;
+        Eigen::Vector3f box_sz_ = { 0.3/2, 0.12/2, 0.36/2 } ;
         int grid_x_ = 3, grid_y_ = 2 ;
         std::string model_path_ ;
 
         float table_width_ = 3, table_height_ = 2.5 ;
         float table_offset_x_ = 0.0, table_offset_y_ = 0.65 ;
-        float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.55 ;
+        float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.75 ;
     };
 
     enum Robot { R1, R2 } ;

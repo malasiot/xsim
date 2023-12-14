@@ -39,8 +39,8 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     count_ = 0;
     title_ = MainWindow::instance()->windowTitle() ;
 
-    Matrix3f m1(AngleAxisf(M_PI/2, Vector3f::UnitY())) ;
-    Matrix3f m2(AngleAxisf(-M_PI/2, Vector3f::UnitY())) ;
+    Matrix3f m1(AngleAxisf(-M_PI/2, Vector3f::UnitX())) ;
+    Matrix3f m2(AngleAxisf(-M_PI/2, Vector3f::UnitX())) ;
 
     target1_.reset(new Node) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
@@ -49,7 +49,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     target1_->addDrawable(geom, mat) ;
     robot1_node->addChild(target1_) ;
 
-    gizmo1_.reset(new TransformManipulator(camera_, 0.05)) ;
+    gizmo1_.reset(new TransformManipulator(camera_, 0.1)) ;
     gizmo1_->gizmo()->show(true) ;
     gizmo1_->gizmo()->setOrder(2) ;
 

@@ -225,6 +225,7 @@ static bool getReferencePlane( const Matrix4d &pose, int elbow,
 
     ref_plane_vector = v1.cross(v2) ;
 
+    return true ;
 }
 
 static Matrix3d skew(const Vector3d &v) {

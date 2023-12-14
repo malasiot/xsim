@@ -139,6 +139,10 @@ void World::createScene() {
     table_cs->setMargin(0) ;
     Isometry3f table_tr(Translation3f{params_.table_offset_x_, params_.table_offset_y_,  -0.001}) ;
 
+    CollisionShapePtr box0_cs(new BoxCollisionShape({0.1, 0.1, 0.1})) ;
+    box0_cs->setMargin(0) ;
+    Isometry3f box0_tr(Translation3f{0, 0.1, 0.5}) ;
+
  /*   r1_orig_.setIdentity() ;
     r1_orig_.translate(Vector3f{-0.1, 0, 0.5});
     r1_orig_.rotate(AngleAxisf(-M_PI/2, Vector3f::UnitY())) ;
@@ -199,6 +203,7 @@ void World::createScene() {
 
     collisions_->addRobot(r2, 0.01) ;
     collisions_->addCollisionObject("table", table_cs, table_tr);
+     collisions_->addCollisionObject("box", box0_cs, box0_tr);
 
 
     table_rb_ = addRigidBody(RigidBodyBuilder()
@@ -207,6 +212,14 @@ void World::createScene() {
                              .setName("table")
                              .setFriction(3.0)
                              .setWorldTransform(table_tr)
+                             ) ;
+
+    auto box0_rb = addRigidBody(RigidBodyBuilder()
+                                 .setCollisionShape(box0_cs)
+                                 .makeVisualShape({0.1, 0.5, 0.5, 1})
+                                 .setName("box")
+                                 .setFriction(3.0)
+                                 .setWorldTransform(box0_tr)
                              ) ;
 
     CollisionShapePtr box_cs(new BoxCollisionShape(params_.box_sz_));

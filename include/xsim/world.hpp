@@ -41,6 +41,8 @@ public:
 
     void resetSimulation() ;
 
+    void initFromSDF(const std::string &sdf_file_path) ;
+
     btDynamicsWorld* getDynamicsWorld();
 
     xviz::NodePtr getVisual() const { return visual_ ; }
@@ -133,6 +135,10 @@ private:
 
 };
 
+class SDFParseException: public std::runtime_error {
+public:
+    SDFParseException(const std::string &what): std::runtime_error(what) {}
+};
 
 
 class RayPicker {
