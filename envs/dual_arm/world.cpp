@@ -37,8 +37,97 @@ std::vector<string> World::getBoxNames() const {
     std::transform(boxes_.begin(), boxes_.end(), names.begin(), [](const RigidBodyPtr &b) { return b->getName() ;}) ;
     return names ;
 }
+/*
+bool World::setRobot1Pose(const Eigen::Isometry3f &p) {
+    KukaIKSolver solver ;
+
+    KukaIKSolver::Problem ik(p * r1_orig_.inverse()) ;
+
+    string prefix("r1_") ;
+
+    std::vector<JointCoeffs> solutions ;
+    if ( solver.solve(ik,  solutions) ) {
+        for( const auto solution: solutions ) {
+            JointState state ;
+            for( uint j=0 ; j<7 ; j++ ) {
+                state.emplace(prefix + KukaIKSolver::s_joint_names[j], solution[j]) ;
+            }
+
+            if ( isStateValid(state, getJointState(World::R2)) ) {
+                setJointState(World::R1, state) ;
+                stepSimulation(0.05);
+                return true ;
+            }
+        }
+    }
+
+    return false ;
+}
 
 
+bool World::setRobot2Pose(const Eigen::Isometry3f &p) {
+    KukaIKSolver solver ;
+
+    KukaIKSolver::Problem ik(p * r2_orig_.inverse()) ;
+
+    string prefix("r2_") ;
+
+    std::vector<JointCoeffs> solutions ;
+    if ( solver.solve(ik,  solutions) ) {
+        for( const auto solution: solutions ) {
+            JointState state ;
+            for( uint j=0 ; j<7 ; j++ ) {
+                state.emplace(prefix + KukaIKSolver::s_joint_names[j], solution[j]) ;
+            }
+
+            if ( isStateValid(getJointState(World::R1), state) ) {
+                setJointState(World::R2, state) ;
+                stepSimulation(0.05);
+                return true ;
+            }
+        }
+    }
+
+    return false ;
+}
+
+void World::plan1Cartesian(const Eigen::Isometry3f &v2)
+{
+    JointState state1 = getJointState(World::R1) ;
+
+    JointTrajectory traj ;
+    traj.addPoint(0, getJointState(World::R1)) ;
+
+    string prefix("r1_") ;
+
+    KukaIKSolver solver ;
+
+    KukaIKSolver::Problem ik(v2 * r1_orig_.inverse()) ;
+
+    JointCoeffs c1 = {0} ;
+    for( uint j=0 ; j<7 ; j++ ) {
+        c1[j] = state1[prefix + KukaIKSolver::s_joint_names[j]] ;
+    }
+
+    ik.setSeedState(c1) ;
+
+    std::vector<JointCoeffs> solutions ;
+    if ( solver.solve(ik,  solutions) ) {
+        for( const auto solution: solutions ) {
+            JointState state ;
+            for( uint j=0 ; j<7 ; j++ ) {
+                state.emplace(prefix + KukaIKSolver::s_joint_names[j], solution[j]) ;
+            }
+
+            if ( isStateValid(state, getJointState(World::R2)) ) {
+                traj.addPoint(1.0, state) ;
+            }
+        }
+    }
+
+}
+
+*/
 
 
 void World::reset() {
@@ -276,8 +365,16 @@ void World::createScene() {
 
 
 
+    robot1_.reset(new Robot("r1_", r1_, r1_orig_)) ;
+    robot2_.reset(new Robot("r2_", r2_, r2_orig_)) ;
 
+    robot1_->setStateValidityChecker([this](const JointState &state){
+        return isStateValid(state, robot2_->getJointState()) ;
+    });
 
+    robot2_->setStateValidityChecker([this](const JointState &state){
+        return isStateValid(robot1_->getJointState(), state) ;
+    });
 
 }
 

@@ -4,29 +4,23 @@
 #include <stdexcept>
 #include <memory>
 
-#include <pugi/pugixml.hpp>
 #include <Eigen/Geometry>
 
 namespace xsim {
-
-class PhysicsWorld ;
 
 class SDFModel ;
 
 class SDFWorld {
 public:
-    SDFWorld() ;
-    void parse(const std::string &fpath, const std::string &world_name = {}) ;
+    SDFWorld() = default;
+
+    static SDFWorld load(const std::string &fpath, const std::string &wn = {}) ;
 
 private:
 
-    bool parseWorld(pugi::xml_node &node, const std::string &wname) ;
-    void parseModel(pugi::xml_node &node) ;
+    friend class SDFParser ;
 
-private:
-
-    std::string version_, name_ ;
-    std::string path_ ;
+    std::string name_ ;
     Eigen::Vector3f gravity_{0, 0, -9.8};
     std::vector<SDFModel> models_ ;
 };
@@ -39,8 +33,6 @@ public:
     SDFModel() = default ;
     SDFModel(const SDFModel&) = delete;
     SDFModel(SDFModel&&) = default;
-
-    void parse(pugi::xml_node &node, const std::string &path) ;
 
     std::string name_ ;
     Eigen::Isometry3f pose_ ;
@@ -60,29 +52,21 @@ struct SDFInertial {
 
 struct SDFGeometry {
     virtual ~SDFGeometry() {}
-
-    static SDFGeometry *parse(pugi::xml_node &node) ;
 };
 
 struct SDFMeshGeometry: public SDFGeometry {
     std::string uri_ ;
     Eigen::Vector3f scale_ ;
-
-    void parse(pugi::xml_node &node) ;
 };
 
 struct SDFEmptyGeometry: public SDFGeometry {
 };
 
 struct SDFBoxGeometry: public SDFGeometry {
-    void parse(pugi::xml_node &node) ;
-
     Eigen::Vector3f sz_ ;
 };
 
 struct SDFMaterial {
-    void parse(pugi::xml_node &node) ;
-
     Eigen::Vector4f ambient_, diffuse_, specular_, emissive_ ;
 };
 
@@ -95,8 +79,6 @@ struct SDFCollision {
     std::string name_ ;
     Eigen::Isometry3f pose_ = Eigen::Isometry3f::Identity() ;
     std::unique_ptr<SDFGeometry> geometry_ ;
-
-    void parse(pugi::xml_node &node, const std::string &path) ;
 };
 
 
@@ -111,8 +93,6 @@ struct SDFVisual {
 
     std::unique_ptr<SDFGeometry> geometry_ ;
     std::unique_ptr<SDFMaterial> material_ ;
-
-    void parse(pugi::xml_node &node, const std::string &path) ;
 };
 
 struct SDFLink {
@@ -120,8 +100,6 @@ struct SDFLink {
     SDFLink() = default ;
     SDFLink(const SDFLink&) = delete;
     SDFLink(SDFLink&&) = default;
-
-    void parse(pugi::xml_node &node, const std::string &path) ;
 
     std::string name_ ;
     SDFInertial inertial_ ;
@@ -131,9 +109,19 @@ struct SDFLink {
 };
 
 struct SDFJoint {
-
-    void parse(pugi::xml_node &node) ;
-
-    std::string name_ ;
+    std::string name_, type_, parent_, child_ ;
+    Eigen::Vector3f axis_{0, 0, 1} ;
+    float damping_ = 0, friction_ = 0 ;
+    float lower_ = -std::numeric_limits<float>::max(),
+          upper_ = -std::numeric_limits<float>::max(),
+          max_effort_ = std::numeric_limits<float>::max(),
+          max_velocity_ = std::numeric_limits<float>::max(),
+          max_stiffness_ = 10000 ;
 };
+
+class SDFParseException: public std::runtime_error {
+public:
+    SDFParseException(const std::string &what): std::runtime_error(what) {}
+};
+
 }

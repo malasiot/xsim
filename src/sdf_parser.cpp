@@ -1,9 +1,10 @@
-#include <xsim/sdf_parser.hpp>
-#include <xsim/world.hpp>
+#include "sdf_parser.hpp"
 
+#include <xsim/sdf_world.hpp>
+
+using namespace Eigen ;
 using namespace std ;
 using namespace pugi ;
-using namespace Eigen ;
 
 namespace xsim {
 
@@ -35,6 +36,20 @@ static bool parse_boolean(const std::string &s) {
     return true ;
 }
 
+static std::string parseRequiredAttribute(xml_node &node, const char *name) {
+    string a = node.attribute(name).as_string() ;
+    if ( a.empty() )
+        throw SDFParseException(std::string("Required attribute ") + name + " missing") ;
+    return a ;
+}
+
+static std::string parseRequiredText(xml_node &node, const char *name) {
+    if ( xml_node n = node.child(name) )
+        return n.text().as_string() ;
+    else
+        throw SDFParseException(std::string("Required element ") + name + " missing") ;
+}
+
 static Isometry3f parse_pose(const std::string &text) {
 
     istringstream strm(text) ;
@@ -60,12 +75,31 @@ static Isometry3f parse_pose(const std::string &text) {
 }
 
 Matrix3f parseInertia(const xml_node &node) {
-    float ixx = node.attribute("ixx").as_float(1) ;
-    float ixy = node.attribute("ixy").as_float(0) ;
-    float ixz = node.attribute("ixz").as_float(0) ;
-    float iyy = node.attribute("iyy").as_float(1) ;
-    float iyz = node.attribute("iyz").as_float(0) ;
-    float izz = node.attribute("izz").as_float(1) ;
+    float ixx, ixy, ixz, iyy, iyz, izz ;
+
+    if ( xml_node n = node.child("ixx" ) ) {
+        ixx = n.text().as_float(1.0) ;
+    }
+
+    if ( xml_node n = node.child("ixy" ) ) {
+        ixy = n.text().as_float(0.0) ;
+    }
+
+    if ( xml_node n = node.child("ixz" ) ) {
+        ixz = n.text().as_float(0.0) ;
+    }
+
+    if ( xml_node n = node.child("iyy" ) ) {
+        iyy = n.text().as_float(1.0) ;
+    }
+
+    if ( xml_node n = node.child("iyz" ) ) {
+        iyz = n.text().as_float(0.0) ;
+    }
+
+    if ( xml_node n = node.child("izz" ) ) {
+        izz = n.text().as_float(1.0) ;
+    }
 
     Matrix3f i ;
     i << ixx, ixy, ixz,
@@ -76,13 +110,7 @@ Matrix3f parseInertia(const xml_node &node) {
 }
 
 
-SDFWorld::SDFWorld() {
-
-}
-
-void SDFWorld::parse(const std::string &sdf_file, const std::string &world_name) {
-
-
+void SDFParser::parse(const std::string &sdf_file, const std::string &world_name) {
     xml_document doc ;
 
     xml_parse_result result = doc.load_file(sdf_file.c_str()) ;
@@ -104,21 +132,18 @@ void SDFWorld::parse(const std::string &sdf_file, const std::string &world_name)
 }
 
 
-bool SDFWorld::parseWorld(pugi::xml_node &node, const std::string &wn) {
+bool SDFParser::parseWorld(pugi::xml_node &node, const std::string &wn) {
     string name = node.attribute("name").as_string() ;
     if ( name.empty() ) return false ;
     if ( !wn.empty() && name != wn ) return false ;
 
     if ( xml_node gravity_node = node.child("gravity") ) {
-        gravity_ = parse_vec3(gravity_node.text().as_string("0 0 -9.8")) ;
+        world_.gravity_ = parse_vec3(gravity_node.text().as_string("0 0 -9.8")) ;
     }
 
     for( xml_node &n: node.children("model") ) {
-        SDFModel model ;
-
-        model.parse(node, path_) ;
-
-        models_.emplace_back(std::move(model)) ;
+        SDFModel model = parseModel(n) ;
+        world_.models_.emplace_back(std::move(model)) ;
     }
 
     return true ;
@@ -126,177 +151,202 @@ bool SDFWorld::parseWorld(pugi::xml_node &node, const std::string &wn) {
 }
 
 
-void SDFModel::parse(xml_node &node, const std::string &path) {
+SDFModel SDFParser::parseModel(xml_node &node) {
+
+    SDFModel model ;
 
     string name = node.attribute("name").as_string() ;
     if ( name.empty() )
         throw SDFParseException("No name provided for model") ;
 
-    name_ = name ;
+    model.name_ = name ;
 
     if ( xml_node static_node = node.child("static") ) {
-        is_static_ = parse_boolean(static_node.text().as_string("0")) ;
+        model.is_static_ = parse_boolean(static_node.text().as_string("0")) ;
     }
 
     if ( xml_node pose_node = node.child("pose") ) {
-        pose_ = parse_pose(pose_node.text().as_string()) ;
+        model.pose_ = parse_pose(pose_node.text().as_string()) ;
     }
 
     for( xml_node &n: node.children("link") ) {
-        SDFLink link ;
-        link.parse(n, path) ;
-        links_.emplace_back(std::move(link)) ;
+        SDFLink link = parseLink(n);
+        model.links_.emplace_back(std::move(link)) ;
     }
 
     for( xml_node &n: node.children("joint") ) {
-        SDFJoint joint ;
-        joint.parse(n) ;
-        joints_.emplace_back(std::move(joint)) ;
+        SDFJoint joint = parseJoint(n);
+        model.joints_.emplace_back(std::move(joint)) ;
 
     }
 
     for( xml_node &n: node.children("model") ) {
-        SDFModel child ;
-        child.parse(n, path) ;
-        children_.emplace_back(std::move(child)) ;
+        SDFModel child = parseModel(n);
+        model.children_.emplace_back(std::move(child)) ;
     }
+
+    return model ;
 }
 
-void SDFLink::parse(pugi::xml_node &node, const std::string &path) {
+SDFLink SDFParser::parseLink(pugi::xml_node &node) {
+    SDFLink link ;
     string name = node.attribute("name").as_string() ;
     if ( name.empty() )
         throw SDFParseException("No name provided for link") ;
 
-    name_ = name ;
+    link.name_ = name ;
 
     if ( xml_node pose_node = node.child("pose") ) {
-        pose_ = parse_pose(pose_node.text().as_string()) ;
+        link.pose_ = parse_pose(pose_node.text().as_string()) ;
     }
 
     if ( xml_node inertial_node = node.child("inertial") ) {
         if ( xml_node inertia_node = inertial_node.child("inertia") )
-            inertial_.inertia_ = parseInertia(inertia_node) ;
+            link.inertial_.inertia_ = parseInertia(inertia_node) ;
         if ( xml_node pose_node = inertial_node.child("pose") )
-            inertial_.pose_ = parse_pose(pose_node.text().as_string()) ;
+            link.inertial_.pose_ = parse_pose(pose_node.text().as_string()) ;
         if ( xml_node mass_node = inertial_node.child("mass") )
-            inertial_.mass_ = mass_node.text().as_double(1.0) ;
+            link.inertial_.mass_ = mass_node.text().as_double(1.0) ;
     }
 
     for( xml_node &collision_node: node.children("collision") ) {
-        SDFCollision collision ;
-
-        collision.parse(collision_node, path) ;
-        collisions_.emplace_back(std::move(collision)) ;
+        SDFCollision collision = parseCollision(collision_node);
+        link.collisions_.emplace_back(std::move(collision)) ;
     }
 
     for( xml_node &visual_node: node.children("visual") ) {
-        SDFVisual visual ;
-
-        visual.parse(visual_node, path) ;
-        visuals_.emplace_back(std::move(visual)) ;
+        SDFVisual visual = parseVisual(visual_node) ;
+        link.visuals_.emplace_back(std::move(visual)) ;
     }
+
+    return link ;
 }
 
-void SDFCollision::parse(pugi::xml_node &node, const std::string &path) {
-    name_ = node.attribute("name").as_string() ;
+SDFCollision SDFParser::parseCollision(pugi::xml_node &node) {
+    SDFCollision collision ;
+    collision.name_ = node.attribute("name").as_string() ;
 
     if ( xml_node pose_node = node.child("pose") ) {
-        pose_ = parse_pose(pose_node.text().as_string()) ;
+        collision.pose_ = parse_pose(pose_node.text().as_string()) ;
     }
 
     if ( xml_node geom_node = node.child("geometry") ) {
-        SDFGeometry *geom = SDFGeometry::parse(geom_node) ;
-        geometry_.reset(geom) ;
+        SDFGeometry *geom = parseGeometry(geom_node) ;
+        collision.geometry_.reset(geom) ;
     }
 
+    return collision ;
 }
 
-SDFGeometry *SDFGeometry::parse(xml_node &node) {
+SDFGeometry *SDFParser::parseGeometry(xml_node &node) {
+
     if ( xml_node n = node.child("empty") ) {
         return new SDFEmptyGeometry() ;
     } else if ( xml_node n = node.child("box") ) {
         SDFBoxGeometry *geom = new SDFBoxGeometry() ;
-        geom->parse(n) ;
+        if ( xml_node size_node = n.child("size") ) {
+            geom->sz_ = parse_vec3(size_node.text().as_string()) ;
+        }
         return geom ;
 
     } else if ( xml_node n = node.child("mesh") ) {
         SDFMeshGeometry *geom = new SDFMeshGeometry() ;
-        geom->parse(n) ;
+        if ( xml_node uri_node = n.child("uri") ) {
+            geom->uri_ = uri_node.text().as_string() ;
+        }
+
+        if ( xml_node scale_node = n.child("scale") ) {
+            geom->scale_ = parse_vec3(scale_node.text().as_string()) ;
+        }
         return geom ;
     } else return nullptr ;
-
-
 }
 
 
-void SDFJoint::parse(pugi::xml_node &node)
+SDFJoint SDFParser::parseJoint(pugi::xml_node &node)
 {
-    string name = node.attribute("name").as_string() ;
-    if ( name.empty() )
-        throw SDFParseException("No name provided for joint") ;
+    SDFJoint joint ;
 
-    name_ = name ;
+    joint.name_ = parseRequiredAttribute(node, "name") ;
+    joint.type_ = parseRequiredAttribute(node, "type") ;
+    joint.parent_ = parseRequiredText(node, "parent") ;
+    joint.child_  = parseRequiredText(node, "child") ;
+
+    if ( xml_node n = node.child("axis") ) {
+        if ( xml_node xyz_node = n.child("xyz") ) {
+            joint.axis_ = parse_vec3(xyz_node.text().as_string()) ;
+        }
+
+        if ( xml_node limits_node = n.child("limits") ) {
+            if ( xml_node lower_node = limits_node.child("lower") ) {
+                joint.lower_ = lower_node.text().as_float() ;
+            }
+            if ( xml_node upper_node = limits_node.child("upper") ) {
+                joint.upper_ = upper_node.text().as_float() ;
+            }
+            if ( xml_node effort_node = limits_node.child("effort") ) {
+                joint.max_effort_ = effort_node.text().as_float() ;
+            }
+            if ( xml_node velocity_node = limits_node.child("velocity") ) {
+                joint.max_velocity_ = velocity_node.text().as_float() ;
+            }
+        }
+
+        if ( xml_node dynamics_node = n.child("dynamics") ) {
+            if ( xml_node damping_node = dynamics_node.child("damping") ) {
+                joint.damping_ = damping_node.text().as_float() ;
+            }
+
+            if ( xml_node friction_node = dynamics_node.child("friction") ) {
+                joint.friction_ = friction_node.text().as_float() ;
+            }
+        }
 
 
 
-
-}
-
-void SDFMeshGeometry::parse(pugi::xml_node &node)
-{
-    if ( xml_node uri_node = node.child("uri") ) {
-        uri_ = uri_node.text().as_string() ;
     }
 
-    if ( xml_node scale_node = node.child("scale") ) {
-        scale_ = parse_vec3(scale_node.text().as_string()) ;
-    }
 
+    return joint ;
 }
 
-void SDFBoxGeometry::parse(pugi::xml_node &node)
+SDFVisual SDFParser::parseVisual(pugi::xml_node &node)
 {
-    if ( xml_node size_node = node.child("size") ) {
-        sz_ = parse_vec3(size_node.text().as_string()) ;
-    }
-}
-
-void SDFVisual::parse(pugi::xml_node &node, const std::string &path)
-{
-    name_ = node.attribute("name").as_string() ;
+    SDFVisual visual ;
+    visual.name_ = node.attribute("name").as_string() ;
 
     if ( xml_node pose_node = node.child("pose") ) {
-        pose_ = parse_pose(pose_node.text().as_string()) ;
+        visual.pose_ = parse_pose(pose_node.text().as_string()) ;
     }
 
     if ( xml_node geom_node = node.child("geometry") ) {
-        SDFGeometry *geom = SDFGeometry::parse(geom_node) ;
-        geometry_.reset(geom) ;
+        SDFGeometry *geom = parseGeometry(geom_node) ;
+        visual.geometry_.reset(geom) ;
     }
 
     if ( xml_node material_node = node.child("material") ) {
-        material_.reset(new SDFMaterial()) ;
-        material_->parse(material_node) ;
+        SDFMaterial *material = new SDFMaterial ;
+        if ( xml_node ambient_node = material_node.child("ambient") ) {
+            material->ambient_ = parse_vec4(ambient_node.text().as_string()) ;
+        }
+
+        if ( xml_node diffuse_node = material_node.child("diffuse") ) {
+            material->diffuse_ = parse_vec4(diffuse_node.text().as_string()) ;
+        }
+
+        if ( xml_node specular_node = material_node.child("specular") ) {
+            material->specular_ = parse_vec4(specular_node.text().as_string()) ;
+        }
+
+        if ( xml_node emissive_node = material_node.child("emissive") ) {
+            material->emissive_ = parse_vec4(emissive_node.text().as_string()) ;
+        }
+
+        visual.material_.reset(material) ;
     }
+
+    return visual ;
 }
 
-void SDFMaterial::parse(pugi::xml_node &node)
-{
-    if ( xml_node ambient_node = node.child("ambient") ) {
-        ambient_ = parse_vec4(ambient_node.text().as_string()) ;
-    }
-
-    if ( xml_node diffuse_node = node.child("diffuse") ) {
-        diffuse_ = parse_vec4(diffuse_node.text().as_string()) ;
-    }
-
-    if ( xml_node specular_node = node.child("specular") ) {
-        specular_ = parse_vec4(specular_node.text().as_string()) ;
-    }
-
-    if ( xml_node emissive_node = node.child("emissive") ) {
-        emissive_ = parse_vec4(emissive_node.text().as_string()) ;
-    }
-}
 
 }

@@ -70,3 +70,4 @@ add_executable(test_planner test_planner.cpp
     ur5_ik_solver.hpp
    )
 target_link_libraries(test_planner xsim ${BULLET_LIBRARIES} )
+

@@ -31,6 +31,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
 
     initCamera({0, 0, 0}, 0.5, SceneViewer::ZAxis) ;
 
+
     auto viz = world->getVisual() ;
     auto robot1_node = viz->findNodeByName("r1_iiwa_base") ;
 
@@ -39,8 +40,27 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     count_ = 0;
     title_ = MainWindow::instance()->windowTitle() ;
 
-    Matrix3f m1(AngleAxisf(-M_PI/2, Vector3f::UnitX())) ;
-    Matrix3f m2(AngleAxisf(-M_PI/2, Vector3f::UnitX())) ;
+    Matrix3f m1(AngleAxisf(-M_PI, Vector3f::UnitX())) ;
+    Matrix3f m2(AngleAxisf(-M_PI, Vector3f::UnitX())) ;
+
+    Isometry3f p1 = Isometry3f::Identity() ;
+    Isometry3f p2 = Isometry3f::Identity() ;
+
+    p1.linear() = m1 ;
+    p1.translation() = Vector3f{-0.25, 0.75, 0.15} ;
+    p2.linear() = m2 ;
+    p2.translation() = Vector3f{0.25, 0.75, 0.15} ;
+
+    if ( world->robot1().setPose(p1) )
+        world->stepSimulation(0.05);
+
+
+    if ( world->robot2().setPose(p2) ) {
+        world->stepSimulation(0.05);
+    }
+
+    p1.translation() += Vector3f{0.05, 0, 0} ;
+    world->robot1().moveTo(p1, 0.4) ;
 
     target1_.reset(new Node) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
@@ -60,7 +80,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
             p.linear() = m1 ;
           //  p.translation() = Vector3f{0, 0.45, 0.05};
 
-
+/*
             KukaIKSolver solver ;
 
             KukaIKSolver::Problem ik(p ) ;
@@ -82,6 +102,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
                     }
                 }
             }
+*/
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
             //          cout << f.translation().adjoint() << endl ;
         }
@@ -111,7 +132,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
             p.linear() = m2 ;
           //  p.translation() = Vector3f{0, 0.45, 0.05};
 
-
+/*
             KukaIKSolver solver ;
 
             KukaIKSolver::Problem ik(p ) ;
@@ -133,6 +154,7 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
                     }
                 }
             }
+*/
         } else if ( e == TRANSFORM_MANIP_MOVING ) {
             //          cout << f.translation().adjoint() << endl ;
         }
@@ -263,3 +285,24 @@ void GUI::keyPressEvent(QKeyEvent *event) {
         SceneViewer::keyPressEvent(event);
 }
 
+
+void GUI::trajectory(const JointTrajectory &traj) {
+    if ( done ) return ;
+    showTrajectory(traj);
+    if ( traj_thread_ ) return ;
+
+    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(world_, traj) ;
+    connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
+    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){
+        JointTrajectory mtraj ;
+        delete traj_thread_ ; traj_thread_ = nullptr;
+        world_->disableToolCollisions();
+        if ( world_->planner()->planRelative(world_->controller()->getJointState(), Vector3f{0, 0.2, 0}, mtraj)) {
+            trajectory(mtraj) ;
+            done = true ;
+        }
+        world_->enableToolCollisions();
+    });
+    workerThread->start();
+    traj_thread_ = workerThread ;
+}

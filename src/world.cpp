@@ -16,8 +16,6 @@
 #include <bullet/BulletDynamics/Featherstone/btMultiBodyDynamicsWorld.h>
 #include <bullet/BulletSoftBody/btSoftMultiBodyDynamicsWorld.h>
 
-#include <xsim/sdf_parser.hpp>
-
 using namespace std ;
 using namespace Eigen ;
 using namespace xviz ;
@@ -94,6 +92,8 @@ struct MyOverlapFilterCallback2 : public btOverlapFilterCallback
     virtual ~MyOverlapFilterCallback2()
     {
     }
+
+
     // return true when pairs need collision
     virtual bool needBroadphaseCollision(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1) const
     {
@@ -267,10 +267,6 @@ void PhysicsWorld::resetSimulation() {
 
 }
 
-void PhysicsWorld::initFromSDF(const std::string &sdf_file_path) {
-    SDFWorld world ;
-    world.parse(sdf_file_path) ;
-}
 
 PhysicsWorld::~PhysicsWorld()
 {

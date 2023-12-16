@@ -10,6 +10,7 @@ add_executable(dual_arm
     bullet_gui.cpp
     bullet_gui.hpp
     kuka_iiwa_ik_solver.cpp
+    robot.cpp
 #    environment.cpp
 #    environment.hpp
 #    dqn.cpp

@@ -436,6 +436,7 @@ const Link *MultiBody::getLink(const string &name) const {
 
 void MultiBody::setBaseWorldTransform(const Eigen::Isometry3f &tr) {
      body_->setBaseWorldTransform(toBulletTransform(tr) * root_->local_inertial_frame_) ;
+
 }
 
 int MultiBody::getJointIndex(const string &name) const {

@@ -4,7 +4,7 @@
 #include <xsim/collision_space.hpp>
 #include <cvx/misc/variant.hpp>
 
-#include "kuka_iiwa_ik_solver.hpp"
+#include "robot.hpp"
 
 class Robot ;
 class UR5Planning ;
@@ -15,7 +15,7 @@ public:
         Parameters(const cvx::Variant &config) ;
 
         Eigen::Vector3f box_sz_ = { 0.3/2, 0.12/2, 0.36/2 } ;
-        int grid_x_ = 3, grid_y_ = 2 ;
+        int grid_x_ = 1, grid_y_ = 1 ;
         std::string model_path_ ;
 
         float table_width_ = 3, table_height_ = 2.5 ;
@@ -23,12 +23,17 @@ public:
         float pallet_offset_x_ = 0.0, pallet_offset_y_ = 0.75 ;
     };
 
-    enum Robot { R1, R2 } ;
+    enum RobotId { R1, R2 } ;
 
     World(const Parameters &params) ;
 
     std::map<std::string, Eigen::Isometry3f> getBoxTransforms() const ;
     std::vector<std::string> getBoxNames() const ;
+
+    bool setRobot1Pose(const Eigen::Isometry3f &p) ;
+    bool setRobot2Pose(const Eigen::Isometry3f &p) ;
+
+    void plan1Cartesian(const Eigen::Isometry3f &v) ;
 
     void setTarget(const std::string &box, const Eigen::Vector2f &pos, float radius) ;
 
@@ -40,7 +45,7 @@ public:
 
     xsim::CollisionSpace *collisions() { return collisions_.get() ; }
     const Parameters &params() const { return params_ ; }
-
+/*
     void setJointState(Robot r, const xsim::JointState &state) {
         for( const auto &jn: KukaIKSolver::s_joint_names ) {
             std::string joint_name = ( r == R1 ) ? "r1_" : "r2_" ;
@@ -61,12 +66,11 @@ public:
         }
         return state ;
     }
-
+*/
     xsim::MultiBodyPtr r1_, r2_ ;
 
-    xsim::MultiBodyPtr controller(Robot r) const {
-        return ( r == R1 ) ? r1_ : r2_ ;
-    }
+    Robot &robot1() const { return *robot1_ ; }
+    Robot &robot2() const { return *robot2_ ; }
 
     bool isStateValid(const xsim::JointState &js1, const xsim::JointState &js2) ;
 
@@ -83,6 +87,7 @@ private:
     std::shared_ptr<xsim::CollisionSpace> collisions_ ;
     std::unique_ptr<xsim::KinematicModel> kinematics_r1_, kinematics_r2_ ;
     Parameters params_ ;
+    std::unique_ptr<Robot> robot1_, robot2_ ;
 
 private:
 

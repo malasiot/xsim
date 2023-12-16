@@ -17,6 +17,7 @@ static vector<string> arm_joint_names = {
 };
 
 
+
 void Robot::executeTrajectory(const JointTrajectory &traj, float speed) {
     if ( stcb_ )
         stcb_(traj) ;

@@ -13,37 +13,43 @@
 
 #include <xviz/gui/manipulator.hpp>
 
-class QTcpServer ;
+#include <QThread>
 
-Q_DECLARE_METATYPE(State)
-
-class ExecuteStepThread: public QThread {
+class ExecuteTrajectoryThread: public QThread {
 
     Q_OBJECT
 public:
-    ExecuteStepThread(Player *env, int64_t action): env_(env), action_id_(action) {
-        env_->world()->setUpdateCallback([this]() {
-            emit updateScene();
-        });
+    ExecuteTrajectoryThread(Robot *robot, const xsim::JointTrajectory &traj, float speed): robot_(robot), traj_(traj), speed_(speed) {
+
     }
 
-    ~ExecuteStepThread() {
-        env_->world()->setUpdateCallback(nullptr);
+    ~ExecuteTrajectoryThread() {
+
     }
 
+    void update() {
+        emit updateScene();
+    }
     void run() override {
-        auto state = env_->getState() ;
-        auto [new_state,  done] = env_->step(state, action_id_) ;
-        emit finishedStep(new_state, done) ;
+        robot_->executeTrajectory(traj_, speed_);
+#if 0
+        for( int i=0 ; i<1000 ; i++ ) {
+            float t = i/1000.0 ;
+            auto j = traj_.getState(t, world_->controller_->iplan_) ;
+            world_->controller_->setJointState(j) ;
+            world_->stepSimulation(0.05) ;
+        }
+#endif
     }
 
 signals:
     void updateScene();
-    void finishedStep(const State &state, bool done) ;
 protected:
 
-    Player *env_ ;
-    int64_t action_id_ ;
+    Robot *robot_ ;
+    xsim::JointTrajectory traj_ ;
+    float speed_ ;
+
 
 };
 
@@ -67,6 +73,8 @@ public:
     void mouseReleaseEvent(QMouseEvent * event) override;
 
     void mouseMoveEvent(QMouseEvent *event) override;
+
+    void trajectory(const xsim::JointTrajectory &traj);
 
 private slots:
     void grabScreen();
