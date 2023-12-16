@@ -15,11 +15,13 @@
 
 #include <QThread>
 
+#include "controller.hpp"
+
 class ExecuteTrajectoryThread: public QThread {
 
     Q_OBJECT
 public:
-    ExecuteTrajectoryThread(Robot *robot, const xsim::JointTrajectory &traj, float speed): robot_(robot), traj_(traj), speed_(speed) {
+    ExecuteTrajectoryThread(Controller *c, float dt): controller_(c), dt_(dt) {
 
     }
 
@@ -31,26 +33,17 @@ public:
         emit updateScene();
     }
     void run() override {
-        robot_->executeTrajectory(traj_, speed_);
-#if 0
-        for( int i=0 ; i<1000 ; i++ ) {
-            float t = i/1000.0 ;
-            auto j = traj_.getState(t, world_->controller_->iplan_) ;
-            world_->controller_->setJointState(j) ;
-            world_->stepSimulation(0.05) ;
+        while ( !controller_->step(dt_) ) {
+            update() ;
         }
-#endif
     }
 
 signals:
     void updateScene();
 protected:
 
-    Robot *robot_ ;
-    xsim::JointTrajectory traj_ ;
-    float speed_ ;
-
-
+    Controller *controller_ ;
+    float dt_ ;
 };
 
 class GUI: public SimulationGui {
@@ -93,6 +86,7 @@ private:
     QTimer *timer_ ;
     int64_t count_ ;
     QString grab_frame_path_, title_ ;
+    ExecuteTrajectoryThread *thread_ ;
 };
 
 
