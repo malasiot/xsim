@@ -60,7 +60,11 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
     }
 
     p1.translation() += Vector3f{0.05, 0, 0} ;
-    world->robot1().moveTo(p1, 0.4) ;
+
+    JointTrajectory traj ;
+    world->robot1().moveToCartesian(p1, traj) ;
+
+    trajectory(&world->robot1(), traj) ;
 
     target1_.reset(new Node) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
@@ -286,23 +290,11 @@ void GUI::keyPressEvent(QKeyEvent *event) {
 }
 
 
-void GUI::trajectory(const JointTrajectory &traj) {
-    if ( done ) return ;
-    showTrajectory(traj);
-    if ( traj_thread_ ) return ;
-
-    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(world_, traj) ;
+void GUI::trajectory(Robot *robot, const JointTrajectory &traj) {
+    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(robot, traj, 0.05) ;
     connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
     connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){
-        JointTrajectory mtraj ;
-        delete traj_thread_ ; traj_thread_ = nullptr;
-        world_->disableToolCollisions();
-        if ( world_->planner()->planRelative(world_->controller()->getJointState(), Vector3f{0, 0.2, 0}, mtraj)) {
-            trajectory(mtraj) ;
-            done = true ;
-        }
-        world_->enableToolCollisions();
+
     });
     workerThread->start();
-    traj_thread_ = workerThread ;
 }
