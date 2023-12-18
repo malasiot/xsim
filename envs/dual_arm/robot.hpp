@@ -34,6 +34,7 @@ struct Robot {
     void move(const xsim::JointState &start_state, const xsim::JointState &end_state, float speed) ;
     void moveTo(const xsim::JointState &target, float speed) ;
     void moveTo(const Eigen::Isometry3f &pose, float speed) ;
+    void cartesian(const Eigen::Isometry3f &pose, xsim::JointTrajectory &traj) ;
 
     void setJointState(const std::string &name, float v) ;
     void setJointState(const xsim::JointState &state) ;
@@ -41,12 +42,14 @@ struct Robot {
     xsim::JointState getJointState() const ;
     void stop() ;
 
+    std::vector<float> getTorques() const ;
+
     void setStartTrajectoryCallback(StartTrajectoryCallback cb) { stcb_ = cb ; }
 
 private:
 
     xsim::MultiBodyPtr controller_ ;
-    World *world_ ;
+
     Eigen::Isometry3f orig_ ;
     std::string prefix_ ;
     StartTrajectoryCallback stcb_ = nullptr ;

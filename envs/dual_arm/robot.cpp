@@ -71,40 +71,6 @@ bool Robot::setPose(const Eigen::Isometry3f &p) {
 }
 
 
-void Robot::executeTrajectory(const JointTrajectory &traj, float speed) {
-    if ( stcb_ )
-        stcb_(traj) ;
-
-    for( int i=0 ; i<traj.points().size()-1 ; i++ ) {
-        const auto &t1 = traj.points()[i] ;
-        const auto &t2 = traj.points()[i+1] ;
-
-        cout << t1 << ' ' << t2 << endl ;
-        move(t1, t2, speed) ;
-        while (1) {
-            world_->stepSimulation(0.05);
-
-            auto state = getJointState() ;
-
-            bool changed = false ;
-            for( const auto &sp: state ) {
-                float start_v = t2.find(sp.first)->second;
-                float v = state[sp.first] ;
-
-                if ( fabs(v - start_v) > 0.01 ) {
-                    changed = true ;
-                    break ;
-                }
-            }
-
-            if ( !changed ) {
-                stop() ;
-                break ;
-            }
-        }
-    }
-}
-
 void Robot::move(const JointState &start_state, const JointState &end_state, float speed) {
 
     double max_delta = 0.0 ;
@@ -131,7 +97,10 @@ void Robot::move(const JointState &start_state, const JointState &end_state, flo
 
         // scale motor speeds so that all motors arrive to their target at the same time
         double j_speed = speed * delta / max_delta ;
-        ctrl->setMotorControl(MotorControl(POSITION_CONTROL).setMaxVelocity(j_speed).setTargetPosition(v2));
+        ctrl->setMotorControl(MotorControl(POSITION_CONTROL)
+                              .setMaxVelocity(j_speed)
+                              .setTargetPosition(v2)
+                              .setMaxForce(0.5));
     }
 }
 
@@ -146,6 +115,17 @@ void Robot::moveTo(const Eigen::Isometry3f &pose, float speed)
     JointState target ;
     if ( ik(pose, getJointState(), target) ) {
         moveTo(target, speed) ;
+    }
+
+}
+
+void Robot::cartesian(const Eigen::Isometry3f &pose, xsim::JointTrajectory &traj)
+{
+    JointState start = getJointState() ;
+    JointState target ;
+    if ( ik(pose, start, target) ) {
+        traj.addPoint(0, start) ;
+        traj.addPoint(1, target) ;
     }
 
 }
@@ -182,7 +162,18 @@ void Robot::stop() {
         ctrl->setMotorControl(MotorControl(VELOCITY_CONTROL).setTargetVelocity(0.0).setMaxForce(1000));
         state.emplace(sjn, ctrl->getPosition()) ;
     }
-    for( int i=0 ; i<10 ; i++ )
-        world_->stepSimulation(0.05);
+
 }
 
+
+std::vector<float> Robot::getTorques() const
+{
+    std::vector<float> t ;
+
+    for( const auto &j: KukaIKSolver::s_joint_names ) {
+        string sjn = prefix_ + j ;
+        double torque = controller_->getJointTorque(sjn) ;
+        t.emplace_back(torque);
+    }
+    return t ;
+}

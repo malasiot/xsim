@@ -118,6 +118,7 @@ void Robot::stop() {
         world_->stepSimulation(0.05);
 }
 
+
 const std::vector<string> &Robot::armJointNames() const {
     return arm_joint_names ;
 }

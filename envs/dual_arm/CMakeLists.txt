@@ -11,6 +11,8 @@ add_executable(dual_arm
     bullet_gui.hpp
     kuka_iiwa_ik_solver.cpp
     robot.cpp
+    follow_trajectory_controller.cpp
+    grasp_controller.cpp
 #    environment.cpp
 #    environment.hpp
 #    dqn.cpp

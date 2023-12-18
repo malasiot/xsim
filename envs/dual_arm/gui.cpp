@@ -22,6 +22,7 @@
 
 #include <xviz/scene/node_helpers.hpp>
 
+#include "grasp_controller.hpp"
 using namespace std ;
 using namespace xviz ;
 using namespace xsim ;
@@ -61,10 +62,25 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
 
     p1.translation() += Vector3f{0.05, 0, 0} ;
 
-    JointTrajectory traj ;
-    world->robot1().moveToCartesian(p1, traj) ;
+    p2.translation() += Vector3f{-0.05, 0, 0} ;
 
-    trajectory(&world->robot1(), traj) ;
+    JointTrajectory traj1 ;
+    world->robot1().cartesian(p1, traj1) ;
+
+    JointTrajectory traj2 ;
+    world->robot2().cartesian(p2, traj2) ;
+
+    GraspController *cntrl = new GraspController(world, traj1, world->robot1(),
+          traj2, world->robot2(),  0.01);
+    thread_ = new ExecuteTrajectoryThread(cntrl, 0.01);
+
+    connect(thread_, &ExecuteTrajectoryThread::updateScene, this, [this]() {
+        update();
+    });
+    connect(thread_, &ExecuteTrajectoryThread::finished, thread_, [this, world](){
+
+    });
+
 
     target1_.reset(new Node) ;
     GeometryPtr geom(new BoxGeometry({0.01, 0.01, 0.01})) ;
@@ -82,6 +98,8 @@ GUI::GUI(World *world): SimulationGui(world), world_(world) {
             Isometry3f p = Isometry3f::Identity() ;
             p.translation() = f.translation()  ;
             p.linear() = m1 ;
+
+
           //  p.translation() = Vector3f{0, 0.45, 0.05};
 
 /*
@@ -285,16 +303,15 @@ void GUI::keyPressEvent(QKeyEvent *event) {
         startRecording() ;
     } else if ( key == Qt::Key_S ) {
         stopRecording() ;
-    } else
+    } else if ( key == Qt::Key_G ) {
+        thread_->start() ;
+    }else
         SceneViewer::keyPressEvent(event);
 }
 
 
-void GUI::trajectory(Robot *robot, const JointTrajectory &traj) {
-    ExecuteTrajectoryThread *workerThread = new ExecuteTrajectoryThread(robot, traj, 0.05) ;
-    connect(workerThread, &ExecuteTrajectoryThread::updateScene, this, [this]() { update();});
-    connect(workerThread, &ExecuteTrajectoryThread::finished, workerThread, [this](){
 
-    });
-    workerThread->start();
+void GUI::trajectory(const JointTrajectory &traj) {
+
+
 }
