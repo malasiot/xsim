@@ -21,6 +21,8 @@ set(LIB_SOURCES
     urdf_loader.cpp
     urdf_robot.cpp
     robot_scene.cpp
+    sdf_parser.cpp
+    sdf_world.cpp
 
     3rdparty/pugi/pugixml.cpp
 

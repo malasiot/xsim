@@ -54,8 +54,14 @@ void RigidBody::disableDeactivation() {
     handle_->forceActivationState(DISABLE_DEACTIVATION);
 }
 
-void RigidBody::setActive() {
-    handle_->forceActivationState(ACTIVE_TAG);
+void RigidBody::setActive(bool ac) {
+    handle_->activate(ac);
+    //handle_->forceActivationState(ACTIVE_TAG);
+}
+
+void RigidBody::setGravity(const Eigen::Vector3f &g)
+{
+    handle_->setGravity(toBulletVector(g));
 }
 
 void RigidBody::setContactProcessingThreshold(float t) {

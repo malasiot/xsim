@@ -3,6 +3,7 @@
 #include <xsim/ompl_planner.hpp>
 #include "robot.hpp"
 #include "controller.hpp"
+#include "follow_trajectory_controller.hpp"
 
 class World ;
 
@@ -16,13 +17,7 @@ public:
 
 private:
 
-    bool stateHasChanged(const xsim::JointState &j1, const xsim::JointState &j2) ;
+    FollowTrajectoryController cntrl1_, cntrl2_ ;
     World *world_ ;
-    uint cp1_ = 0, cp2_ = 0 ;
-    Robot &robot1_, &robot2_ ;
-    xsim::JointTrajectory traj1_, traj2_ ;
-    xsim::JointState prev1_, prev2_ ;
-    float speed_ ;
-    float delta_ = 1.0e-10f;
-    bool segment1_has_finished_ = true, segment2_has_finished_ = true ;
+
 };

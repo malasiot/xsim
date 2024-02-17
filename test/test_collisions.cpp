@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 
     // load URDFs
     string path = "/home/malasiot/source/xsim/data/" ;
-    URDFRobot robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
+    URDFRobot robot = URDFRobot::loadURDF(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
     robot.setJointPosition("elbow_joint", 0.5) ;
     robot.setJointPosition("shoulder_lift_joint", -.54) ;
    // robot.setJointPosition("shoulder_pan_joint", 0) ;

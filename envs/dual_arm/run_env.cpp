@@ -52,10 +52,7 @@ int main(int argc, char **argv)
 
     MainWindow window ;
     GUI *gui = new GUI(world.get()) ;
-    gui->setTarget(env->params().target_,
-                   { env_params.value("target.pos.x", 0.0).as<float>(),
-                     env_params.value("target.pos.y", 0.0).as<float>() },
-                     env_params.value("target.radius", 0.0).as<float>() ) ;
+
     gui->setGrabFramePath("/tmp/grab");
 
 

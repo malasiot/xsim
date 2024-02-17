@@ -208,8 +208,18 @@ void World::execute(const Eigen::Isometry3f &orig, float t1, float t2, float spe
 
 }
 
+void World::setBoxMass()
+{
+    boxes_[0]->setGravity({0, 0, -10});
+
+}
+
 bool World::isStateValid(const xsim::JointState &state1, const JointState &state2)
 {
+    auto it = state1.find("r1_joint_a7") ;
+    if ( it != state1.end() ) {
+        if ( it->second < 0 ) return false ;
+    }
     kinematics_r1_->setJointState(state1) ;
 
     map<string, Isometry3f> trs1 = kinematics_r1_->getLinkTransforms() ;
@@ -222,7 +232,7 @@ bool World::isStateValid(const xsim::JointState &state1, const JointState &state
 
     return !collisions_->hasCollision() ;
 }
-
+#define HORIZ
 void World::createScene() {
     CollisionShapePtr table_cs(new BoxCollisionShape(Vector3f{params_.table_width_/2.0, params_.table_height_/2.0, 0.001})) ;
     table_cs->setMargin(0) ;
@@ -232,18 +242,21 @@ void World::createScene() {
     box0_cs->setMargin(0) ;
     Isometry3f box0_tr(Translation3f{0, 0.1, 0.5}) ;
 
- /*   r1_orig_.setIdentity() ;
-    r1_orig_.translate(Vector3f{-0.1, 0, 0.5});
-    r1_orig_.rotate(AngleAxisf(-M_PI/2, Vector3f::UnitY())) ;
-  //  r1_orig_.rotate(AngleAxisf(M_PI, Vector3f::UnitZ())) ;
+
+     double l = 0.72 ;
+
+#ifdef HORIZ
+  r1_orig_.setIdentity() ;
+    r1_orig_.translate(Vector3f{-l/2.0, 0, 0.75});
+    r1_orig_.rotate(AngleAxisf(-M_PI/2, Vector3f::UnitX())) ;
+//    r1_orig_.rotate(AngleAxisf(M_PI, Vector3f::UnitZ())) ;
 
 
     r2_orig_.setIdentity() ;
-    r2_orig_.translate(Vector3f{0.1, 0, 0.5});
-    r2_orig_.rotate(AngleAxisf(M_PI/2, Vector3f::UnitY())) ;
-*/
+    r2_orig_.translate(Vector3f{l/2.0, 0, 0.75});
+    r2_orig_.rotate(AngleAxisf(-M_PI/2, Vector3f::UnitX())) ;
+#else
 
-    double l = 0.72 ;
     r1_orig_.setIdentity() ;
     r1_orig_.translate(Vector3f{-l/2.0, 0, 0});
 
@@ -251,9 +264,9 @@ void World::createScene() {
     r2_orig_.setIdentity() ;
     r2_orig_.translate(Vector3f{l/2.0, 0, 0});
 
+#endif
 
-
-    URDFRobot r1 = URDFRobot::load(params_.model_path_, "r1_") ;
+    URDFRobot r1 = URDFRobot::loadURDF(params_.model_path_, "r1_") ;
     r1.setWorldTransform(r1_orig_);
 
 
@@ -273,7 +286,7 @@ void World::createScene() {
 
     collisions_->addRobot(r1, 0.01) ;
 
-    URDFRobot r2 = URDFRobot::load(params_.model_path_, "r2_") ;
+    URDFRobot r2 = URDFRobot::loadURDF(params_.model_path_, "r2_") ;
     r2.setWorldTransform(r2_orig_);
 
 
@@ -292,7 +305,7 @@ void World::createScene() {
 
     collisions_->addRobot(r2, 0.01) ;
     collisions_->addCollisionObject("table", table_cs, table_tr);
-     collisions_->addCollisionObject("box", box0_cs, box0_tr);
+ //    collisions_->addCollisionObject("box", box0_cs, box0_tr);
 
 
     table_rb_ = addRigidBody(RigidBodyBuilder()
@@ -311,7 +324,7 @@ void World::createScene() {
                                  .setWorldTransform(box0_tr)
                              ) ;
 
-    CollisionShapePtr box_cs(new BoxCollisionShape(params_.box_sz_));
+        CollisionShapePtr box_cs(new BoxCollisionShape(params_.box_sz_));
     box_cs->setMargin(0.0) ;
 
     CollisionShapePtr box_cs2(new BoxCollisionShape(params_.box_sz_));
@@ -335,16 +348,19 @@ void World::createScene() {
             string name = cvx::format("box_{}_{}", i, j) ;
 
             auto box = addRigidBody(RigidBodyBuilder()
-                                    .setMass(1.5)
+                                    .setMass(1)
                                     .setCollisionShape(box_cs)
                                     .makeVisualShape({1.0, 0.1, 0.9, 1})
                                     .setName(name)
-                                    .setFriction(3.5)
+                                    .setFriction(5.5)
                                     .setRestitution(0.01)
                                     .setSpinningFriction(0.005)
                                     .setWorldTransform(box_tr));
 
+
             box->disableDeactivation();
+
+            box->setGravity({0, 0, 0}) ;
 
             boxes_.emplace_back(box) ;
 

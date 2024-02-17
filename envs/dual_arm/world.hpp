@@ -15,7 +15,7 @@ public:
         Parameters(const cvx::Variant &config) ;
 
         Eigen::Vector3f box_sz_ = { 0.3/2, 0.12/2, 0.36/2 } ;
-        int grid_x_ = 1, grid_y_ = 1 ;
+        int grid_x_ = 3, grid_y_ = 1 ;
         std::string model_path_ ;
 
         float table_width_ = 3, table_height_ = 2.5 ;
@@ -45,6 +45,8 @@ public:
 
     xsim::CollisionSpace *collisions() { return collisions_.get() ; }
     const Parameters &params() const { return params_ ; }
+
+    void setBoxMass() ;
 /*
     void setJointState(Robot r, const xsim::JointState &state) {
         for( const auto &jn: KukaIKSolver::s_joint_names ) {

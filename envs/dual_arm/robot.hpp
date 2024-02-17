@@ -46,6 +46,10 @@ struct Robot {
 
     void setStartTrajectoryCallback(StartTrajectoryCallback cb) { stcb_ = cb ; }
 
+    const std::string &prefix() const { return prefix_ ; }
+
+    const Eigen::Isometry3f &origin() const { return orig_ ; }
+
 private:
 
     xsim::MultiBodyPtr controller_ ;

@@ -104,7 +104,7 @@ bool move_arm_tip(PlanningInterface &iplan, const Vector3f &dp, JointTrajectory 
 
 int main(int argc, char *argv[]) {
     string path = "/home/malasiot/source/xsim/data/" ;
-    auto robot = URDFRobot::load(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
+    auto robot = URDFRobot::loadURDF(path + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
     robot.setJointPosition("shoulder_lift_joint", 0.5) ;
 
     UR5Planning iplan(robot) ;

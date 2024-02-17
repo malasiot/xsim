@@ -19,6 +19,7 @@ public:
 private:
 
     friend class SDFParser ;
+    friend class PhysicsWorld ;
 
     std::string name_ ;
     Eigen::Vector3f gravity_{0, 0, -9.8};
@@ -35,8 +36,8 @@ public:
     SDFModel(SDFModel&&) = default;
 
     std::string name_ ;
-    Eigen::Isometry3f pose_ ;
-    bool is_static_ ;
+    Eigen::Isometry3f pose_ = Eigen::Isometry3f::Identity() ;
+    bool is_static_ = false;
 
     std::vector<SDFModel> children_ ;
     std::vector<SDFLink> links_ ;

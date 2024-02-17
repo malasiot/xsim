@@ -8,7 +8,7 @@ using namespace Eigen ;
 
 namespace xsim {
 
-URDFRobot URDFRobot::load(const std::string &filename, const string &name_prefix, const std::map<std::string, std::string> packages) {
+URDFRobot URDFRobot::loadURDF(const std::string &filename, const string &name_prefix, const std::map<std::string, std::string> packages) {
     URDFLoader loader(packages, name_prefix) ;
     URDFRobot rb = loader.parse(filename) ;
 

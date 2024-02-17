@@ -71,3 +71,6 @@ add_executable(test_planner test_planner.cpp
    )
 target_link_libraries(test_planner xsim ${BULLET_LIBRARIES} )
 
+
+add_executable(test_sdf test_sdf.cpp)
+target_link_libraries(test_sdf xsim)

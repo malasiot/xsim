@@ -152,7 +152,8 @@ public :
     void setWorldTransform(const Eigen::Isometry3f &tr) ;
 
     void disableDeactivation();
-    void setActive();
+    void setActive(bool active);
+    void setGravity(const Eigen::Vector3f &g) ;
 
     void applyExternalForce(const Eigen::Vector3f &force, const Eigen::Vector3f &pos) ;
     void applyExternalTorque(const Eigen::Vector3f &torque) ;

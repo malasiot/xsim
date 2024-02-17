@@ -106,7 +106,7 @@ void createScene() {
     //chassis
 
     car = physics.addMultiBody(MultiBodyBuilder()
-                               .loadURDF(URDFRobot::load(path))
+                               .loadURDF(URDFRobot::loadURDF(path))
                                .setWorldTransform(Isometry3f(Translation3f{0, 0, 0.2})));
 
     for ( const auto &j: car->jointNames() ) {

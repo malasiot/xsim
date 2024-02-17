@@ -9,7 +9,7 @@ using namespace std ;
 bool Robot::ik(const Eigen::Isometry3f &p, xsim::JointState &sol) {
     KukaIKSolver solver ;
 
-    KukaIKSolver::Problem ik(p * orig_.inverse()) ;
+    KukaIKSolver::Problem ik(p* orig_.inverse()) ; // robot coordinates
 
     std::vector<JointCoeffs> solutions ;
     if ( solver.solve(ik,  solutions) ) {
@@ -100,7 +100,7 @@ void Robot::move(const JointState &start_state, const JointState &end_state, flo
         ctrl->setMotorControl(MotorControl(POSITION_CONTROL)
                               .setMaxVelocity(j_speed)
                               .setTargetPosition(v2)
-                              .setMaxForce(0.5));
+                              .setMaxForce(0.4));
     }
 }
 
@@ -130,6 +130,43 @@ void Robot::cartesian(const Eigen::Isometry3f &pose, xsim::JointTrajectory &traj
 
 }
 
+/*
+void Robot::cartesian(const Eigen::Isometry3f &pose, xsim::JointTrajectory &traj)
+{
+    Isometry3f tr_start = controller_->getLink(prefix_ + "tool0")->getWorldTransform() ;
+
+    Quaternionf q_start(tr_start.rotation()) ;
+    Vector3f t_start = tr_start.translation() ;
+
+    Quaternionf q_target(pose.rotation()) ;
+    Vector3f t_target = pose.translation() ;
+
+    const float step_sz = 0.03 ;
+
+    float l = (t_target - t_start).norm() ;
+    size_t n_steps = l / step_sz ;
+
+    JointState start = getJointState(), prev = start ;
+    traj.addPoint(0, start) ;
+
+    for( float s = step_sz ; s < l ; s+=step_sz ) {
+        float t = s/l ;
+        Quaternionf q = q_start.slerp(t, q_target);
+        Vector3f tr = (1 - t) * t_start  + t * t_target ;
+
+        Isometry3f p = Isometry3f::Identity() ;
+        p.linear() = q_start.toRotationMatrix() ;
+        p.translation() = tr ;
+
+        JointState target ;
+        if ( ik(p, prev, target) ) {
+           traj.addPoint(t, target) ;
+        }
+        prev = target ;
+    }
+
+}
+*/
 
 void Robot::setJointState(const std::string &name, float v) {
     controller_->setJointPosition(name, v) ;

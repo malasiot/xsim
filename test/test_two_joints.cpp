@@ -46,7 +46,7 @@ void createWorld() {
     string path = "/home/malasiot/local/bullet3/data/TwoJointRobot_wo_fixedJoints.urdf" ;
 
 
-    robot_mb = physics.addMultiBody(MultiBodyBuilder(URDFRobot::load(path))
+    robot_mb = physics.addMultiBody(MultiBodyBuilder(URDFRobot::loadURDF(path))
                                     .setFixedBase()
                                     .setLinearDamping(0.f)
                                     .setAngularDamping(0.f)) ;

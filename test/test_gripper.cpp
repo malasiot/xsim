@@ -90,7 +90,7 @@ void createWorld() {
                          .makeVisualShape({0.5, 0.5, 0, 1}));
 
     string path = "/home/malasiot/local/bullet3/examples/pybullet/gym/pybullet_data/pr2_gripper.urdf" ;
-    robot = URDFRobot::load(path) ;
+    robot = URDFRobot::loadURDF(path) ;
 
     Isometry3f global = Isometry3f::Identity() ;
 

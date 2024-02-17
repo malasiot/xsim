@@ -35,7 +35,7 @@ World::World(const std::string &data_dir) {
     createMultiBodyDynamicsWorld();
     setGravity({0, 0, -10});
 
-    URDFRobot robot = URDFRobot::load(data_dir + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
+    URDFRobot robot = URDFRobot::loadURDF(data_dir + "robots/ur5/ur5_robotiq85_gripper.urdf" ) ;
 
 
     for ( int i=0 ; i<6  ; i++) {

@@ -2,6 +2,7 @@
 #include <xsim/multi_body.hpp>
 #include <xsim/convert.hpp>
 #include <xsim/soft_body.hpp>
+#include <xsim/sdf_world.hpp>
 #include <xviz/scene/node.hpp>
 
 #include <bullet/BulletCollision/CollisionDispatch/btCollisionWorld.h>
@@ -267,6 +268,18 @@ void PhysicsWorld::resetSimulation() {
 
 }
 
+void PhysicsWorld::initFromSDF(const std::string &fpath) {
+    SDFWorld w = SDFWorld::load(fpath) ;
+    initFromSDF(w) ;
+}
+
+void PhysicsWorld::initFromSDF(const SDFWorld &sdf)
+{
+    setGravity(sdf.gravity_);
+
+
+}
+
 
 PhysicsWorld::~PhysicsWorld()
 {
@@ -342,6 +355,44 @@ bool PhysicsWorld::contactTest(const RigidBodyPtr &b1, std::vector<ContactResult
     dynamics_world_->contactTest(b1->handle(), cb) ;
 
     return results.size() ;
+}
+
+std::vector<ContactResult> PhysicsWorld::getAllContacts()
+{
+    std::vector<ContactResult> contacts ;
+
+    int numManifolds = dynamics_world_->getDispatcher()->getNumManifolds();
+    for ( int i = 0; i < numManifolds; ++i ) {
+        btPersistentManifold *contactManifold =
+            dynamics_world_->getDispatcher()->getManifoldByIndexInternal(i);
+        const btCollisionObject *obA = static_cast<const btCollisionObject *>(contactManifold->getBody0());
+        const btCollisionObject *obB = static_cast<const btCollisionObject *>(contactManifold->getBody1());
+
+        const CollisionObject *coA = static_cast<const CollisionObject *>(obA->getUserPointer());
+        assert(coA != nullptr) ;
+
+        const CollisionObject *coB = static_cast<const CollisionObject *>(obB->getUserPointer());
+        //   assert(coB != nullptr) ;
+
+        int numContacts = contactManifold->getNumContacts();
+
+        for (int j = 0; j < numContacts; ++j) {
+            btManifoldPoint &pt = contactManifold->getContactPoint(j);
+            if (pt.getDistance() < 0.f)  {
+                ContactResult result ;
+                result.a_ = coA ;
+                result.b_ = coB ;
+
+                result.pa_ =  toEigenVector(pt.getPositionWorldOnA()) ;
+                result.pb_ = toEigenVector(pt.getPositionWorldOnB()) ;
+                result.normal_ = toEigenVector(pt.m_normalWorldOnB);
+
+                contacts.push_back(result) ;
+            }
+        }
+    }
+
+    return contacts ;
 }
 
 bool PhysicsWorld::contactPairTest(const RigidBodyPtr &b1, const RigidBodyPtr &b2, float thresh, std::vector<ContactResult> &results) {

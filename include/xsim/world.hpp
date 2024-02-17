@@ -17,6 +17,7 @@
 #include <xsim/multi_body.hpp>
 #include <xsim/constraints.hpp>
 #include <xsim/sensor.hpp>
+#include <xsim/sdf_world.hpp>
 #include <xviz/scene/camera.hpp>
 
 namespace xsim {
@@ -41,6 +42,9 @@ public:
 
     void resetSimulation() ;
 
+    void initFromSDF(const std::string &fpath) ;
+    void initFromSDF(const SDFWorld &sdf) ;
+
     btDynamicsWorld* getDynamicsWorld();
 
     xviz::NodePtr getVisual() const { return visual_ ; }
@@ -51,6 +55,8 @@ public:
 
     // test contact of body with world
     bool contactTest(const RigidBodyPtr &b1, std::vector<ContactResult> &results) ;
+
+    std::vector<ContactResult> getAllContacts() ;
 
     // Test contact between pair of collision objects (up to a distance threshold)
     // Objects can be rigidbodies or multi-body links
